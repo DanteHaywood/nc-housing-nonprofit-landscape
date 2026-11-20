@@ -1,0 +1,8 @@
+model: claude-haiku-5-5
+paths:
+  raw: data/raw
+  interim: data/interim
+  processed: data/processed/landscape.duckdb
+state: NC
+filing_years: [2024, 2025]
+label_sample_size: 100
