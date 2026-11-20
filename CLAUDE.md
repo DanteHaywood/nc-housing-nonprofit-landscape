@@ -1,8 +1,12 @@
 # CLAUDE.md
 
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 ## Project
 
 Classifies North Carolina housing nonprofits from public IRS Form 990 data using the Claude API, and evaluates the classifier against hand labels and the IRS's own NTEE codes (Stage 1). A read-only SQL agent then writes landscape briefs from the cleaned data (Stage 2). This is a portfolio project, so code clarity and honest results matter more than features. Background and data sources are in `README.md`.
+
+**Status:** scaffold only. The `src/` packages are empty, and the layout in `README.md` is the target. The run commands below won't work until their modules exist. `evals/agent_eval.py` and `docs/error_analysis.md` are planned, not written.
 
 ## Commands
 
@@ -10,12 +14,25 @@ Classifies North Carolina housing nonprofits from public IRS Form 990 data using
 pip install -e ".[dev]"            # install with dev tools
 ruff format . && ruff check --fix .  # format and lint
 pytest                             # run tests
+pytest tests/test_<module>.py::test_<name>  # run a single test
 python -m src.ingest.build         # build the DuckDB database from data/raw/
 python -m src.classify.run         # classify organizations (calls the API)
 python evals/classify_eval.py      # Stage 1 eval
 ```
 
-Run `ruff format`, `ruff check`, and `pytest` before calling a task done.
+Run `ruff format`, `ruff check`, and `pytest` before calling a task done. Development is on Windows: in PowerShell, set the key with `$env:ANTHROPIC_API_KEY = "..."`, not `export`.
+
+## Pipeline
+
+1. **Ingest** (`src/ingest/`): IRS BMF filtered to `config.yaml: state` → candidate EINs → join to the yearly index CSVs for `filing_years` → extract only the matching XML from each zip → parse with `lxml` → dedupe to the latest filing per EIN and tax period → load into DuckDB at `paths.processed`.
+2. **Classify** (`src/classify/`): read mission and program service text from DuckDB, call `config.yaml: model`, and write one label per organization back to DuckDB.
+3. **Agent** (`src/agent/`): answers landscape questions with read-only SQL over the same database, Stage 1 labels included.
+
+The `config.yaml` keys are `model`, `paths.{raw,interim,processed}`, `state`, `filing_years`, and `label_sample_size`.
+
+## Taxonomy
+
+There is one primary label per organization: `emergency_shelter`, `affordable_housing_development`, `homeownership`, `rental_assistance`, `supportive_housing`, `not_housing`. This is still a *Proposed* first draft (D-008), due for review after the first 25 hand labels. Any change goes through the decision log.
 
 ## Layout
 
@@ -63,10 +80,13 @@ Run `ruff format`, `ruff check`, and `pytest` before calling a task done.
 - Never edit hand labels to match model output. A label change needs an entry in `docs/decisions.md` saying why.
 - Always report the NTEE baseline next to Claude's results.
 - Results in `README.md` come only from saved eval output in `evals/results/`. Never write estimated or illustrative numbers.
+- The labeled set is about 100 organizations statewide (`label_sample_size`), sampled on purpose from three groups: NTEE major group L, adjacent human services and community development codes, and a random sample.
+- Mapping NTEE codes onto the project taxonomy is a judgment call. It needs its own decision entry when it's made (see D-004).
+- Stage 2 briefs focus on the Cape Fear region. They must say that BMF addresses are headquarters, not service area (D-006).
 
 ## Decision log
 
-When a task involves a real design choice (a library, schema, taxonomy, prompt approach, or eval method), add an entry to `docs/decisions.md` using the template at the top of that file. Accepted entries are not edited; a later entry supersedes them.
+When a task involves a real design choice (a library, schema, taxonomy, prompt approach, or eval method), add an entry to `docs/decisions.md` using the template at the top of that file. Entries are numbered `D-00X`, newest at the bottom. Accepted entries are not edited; a later entry supersedes them, and the old one is marked `Superseded by D-00X`.
 
 ## Workflow
 
