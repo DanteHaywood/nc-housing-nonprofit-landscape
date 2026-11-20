@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nc-housing-nonprofit-landscape"
+version = "0.1.0"
+description = "Classifying NC housing nonprofits from IRS Form 990 data with Claude, evaluated against hand labels and NTEE codes."
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic",
+    "duckdb",
+    "lxml",
+    "pandas",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[tool.setuptools.packages.find]
+include = ["src*"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

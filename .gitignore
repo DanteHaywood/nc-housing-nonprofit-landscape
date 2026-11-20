@@ -1,0 +1,20 @@
+# Data (raw IRS files are large; never commit)
+data/
+
+# Secrets
+.env
+CLAUDE.local.md
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+
+# OS / editors
+.DS_Store
+.vscode/
+.idea/
