@@ -130,3 +130,16 @@ Design decisions for this project, one entry per decision, newest at the bottom.
 **Alternatives.** Multi-label classification. Deferred: harder to label and evaluate in the first pass.
 
 **Consequences.** Organizations doing several things get a single primary label. Revisit after labeling the first 25 organizations.
+
+## D-009: NTEE codes for the candidate set
+
+**Status:** Proposed
+**Date:** 2026-11-20
+
+**Context.** Ingest needs a list of candidate EINs from the BMF before joining to the 990 index. Housing work is not limited to NTEE group L: shelters, group homes, and community development corporations are often coded under human services (P) or community improvement (S). This entry is about which organizations to ingest. It is not the NTEE-to-taxonomy mapping that D-004 calls for, which still needs its own entry.
+
+**Decision.** Candidates are every organization in NTEE major group L, plus these adjacent codes: P60 (emergency assistance), P70, P73, P75 (residential care, group homes, senior continuing care), P85 (homeless centers), S20, S21, S22 (community and neighborhood development), S30, S31 (economic and urban development). Codes match on their first three characters, so `P73Z` matches `P73`. The list lives in `config.yaml: ntee_adjacent`. Rows with a blank NTEE code are excluded here. In the NC BMF this gives 2,593 candidates (1,047 L, 1,546 adjacent).
+
+**Alternatives.** Adding P20 (multipurpose human services) would add 2,064 organizations, mostly not housing. Taking all of P and S would add chambers of commerce, service clubs, and similar groups. Both would cost more to ingest for little gain.
+
+**Consequences.** Housing organizations coded P20 or left uncoded (about a quarter of NC BMF rows have no NTEE code) are missed by this filter. The random-sample group in the labeled set is where those misses show up, so that sample must be drawn from the full BMF, not from these candidates.

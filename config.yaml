@@ -6,3 +6,6 @@ paths:
 state: NC
 filing_years: [2024, 2025]
 label_sample_size: 100
+# NTEE codes adjacent to housing (group L is always included). Matched on the
+# first 3 characters, so P73Z and S200 match P73 and S20. See D-009.
+ntee_adjacent: [P60, P70, P73, P75, P85, S20, S21, S22, S30, S31]

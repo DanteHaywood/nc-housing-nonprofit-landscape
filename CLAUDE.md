@@ -28,7 +28,7 @@ Run `ruff format`, `ruff check`, and `pytest` before calling a task done. Develo
 2. **Classify** (`src/classify/`): read mission and program service text from DuckDB, call `config.yaml: model`, and write one label per organization back to DuckDB.
 3. **Agent** (`src/agent/`): answers landscape questions with read-only SQL over the same database, Stage 1 labels included.
 
-The `config.yaml` keys are `model`, `paths.{raw,interim,processed}`, `state`, `filing_years`, and `label_sample_size`.
+The `config.yaml` keys are `model`, `paths.{raw,interim,processed}`, `state`, `filing_years`, `label_sample_size`, and `ntee_adjacent` (NTEE codes ingested alongside group L, D-009). `src/config.py: load_config()` reads it.
 
 ## Taxonomy
 
