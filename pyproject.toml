@@ -16,7 +16,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest", "ruff"]
+dev = ["pre-commit", "pytest", "ruff"]
 
 [tool.setuptools.packages.find]
 include = ["src*"]

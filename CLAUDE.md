@@ -20,7 +20,8 @@ python -m src.classify.run         # classify organizations (calls the API)
 python evals/classify_eval.py      # Stage 1 eval
 ```
 
-Run `ruff format`, `ruff check`, and `pytest` before calling a task done. Development is on Windows: in PowerShell, set the key with `$env:ANTHROPIC_API_KEY = "..."`, not `export`.
+A hook in `.claude/settings.json` runs Ruff on every Python file you edit. Fix any lint errors it reports before moving on. Run `pytest` before calling a task done.
+Development is on Windows: in PowerShell, set the key with `$env:ANTHROPIC_API_KEY = "..."`, not `export`.
 
 ## Pipeline
 
