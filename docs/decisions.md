@@ -214,3 +214,39 @@ Choosing classifier text from these sources is left to `src/classify/`, with its
 - 3 (990-EZs) have no mission text anywhere in the filing.
 
 The future selection rule must only treat Part I as the mission on a 990: on the 990-EZ, Part I is revenue and expenses. `activity_or_mission` is filled on all 1,486 990s.
+
+## D-014: Database schema and rebuild
+
+**Status:** Proposed
+**Date:** 2026-11-22
+
+**Context.** The ingest stages wrote parquet to `data/interim/`, but nothing loaded `paths.processed`, the database that classify, the eval, and the agent all read. The schema has to serve all three:
+- Classify labels organizations and must not lose its labels when ingest is rebuilt.
+- The eval needs NTEE codes for every organization, and its random sample comes from the full BMF (D-009).
+- The agent runs read-only SQL for briefs, including revenue trends across years.
+
+The parser also read every XML file in `data/interim/xml/`, so files left behind by an older manifest could be loaded.
+
+**Decision.** `python -m src.ingest.build` runs bmf → manifest → extract → parse and loads one DuckDB file with a schema per owner: `ingest` (build), `classify` (`src/classify/`), and `agent` (`src/agent/`). The build replaces `ingest` in one transaction (drop schema, run `src/ingest/schema.sql`, insert), so a failure rolls back to the previous tables. No foreign key crosses schemas, so labels survive every rebuild. `ingest` holds:
+- `organizations`: the **full** state BMF (59,487 in NC), flagged with `candidate_group`
+- `filing_index`: every manifest filing with a `status` for where it stopped
+- `filings`, `programs`, `revenue_lines`, and `schedule_o`, with primary keys
+- a `funnel` table of counts recorded at build time
+- a `latest_filings` view
+
+The index, not the XML, is the authority for each filing's EIN and tax period. Parse now reads only the manifest's files. `python -m src.ingest.quality` opens the database read-only and prints the funnel and missing-field shares, with all arithmetic in SQL. Columns are described in `docs/schema.md`.
+
+**Alternatives.**
+- Candidates only in `organizations`: would leave the eval's random sample and the agent's directory without the 96% of NC organizations outside the candidate NTEE codes.
+- A separate database file per stage: the agent would need to attach several files, and joins across them get awkward.
+- Rebuilding the whole file each time: would delete labels, or force classify to reload them from cache after every ingest change.
+- Keeping parquet as the hand-off: no keys, no constraints, and the agent would query files directly.
+
+**Consequences.** Primary keys and checks catch duplicates and bad statuses at load time. The NC build takes about 15 seconds once XML is extracted. The first build shows the coverage gap clearly:
+- 1,044 of 2,593 candidates have a 2024–2025 e-filed return in the index.
+- 1,013 have a parsed 990 or 990-EZ (31 filed only a 990-PF).
+- For 1,003, the latest filing has mission text that isn't a bare Schedule O pointer.
+
+Two things still need work:
+- Organizations in the eval's random sample (D-009) won't have filings until their EINs are added to the manifest's input.
+- Cape Fear briefs (D-006) need a ZIP-to-county crosswalk, a new data source, before `organizations.zip5` can be filtered by region.

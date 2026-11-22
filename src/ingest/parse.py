@@ -30,7 +30,8 @@ import pandas as pd
 from lxml import etree
 
 from src.config import load_config
-from src.ingest.extract import xml_dir
+from src.ingest.extract import xml_dir, xml_path
+from src.ingest.manifest import manifest_path
 
 logger = logging.getLogger(__name__)
 
@@ -161,6 +162,8 @@ SCHEDULE_O_COLUMNS = [
     "is_mission_or_program",
 ]
 
+TABLE_NAMES = ("filings", "programs", "revenue_lines", "schedule_o")
+
 AMOUNT_COLUMNS = {
     "filings": [c for c in FORM_FIELDS if c not in TEXT_COLUMNS],
     "programs": ["expense_amt", "grant_amt", "revenue_amt"],
@@ -196,6 +199,10 @@ class ParseResult:
     schedule_o: pd.DataFrame
     skipped: dict[str, int]  # return type -> count of files skipped
     failed: list[str]  # files that couldn't be parsed as XML
+    # OBJECT_IDs skipped for an unsupported form, e.g. 990-PF
+    unsupported: list[str] = field(default_factory=list)
+    # manifest OBJECT_IDs with no XML file (set by run_parse)
+    not_on_disk: list[str] = field(default_factory=list)
 
 
 class _Form:
@@ -505,12 +512,14 @@ def parse_filings(paths: Iterable[Path]) -> ParseResult:
     filings, programs, revenue_lines, schedule_o = [], [], [], []
     skipped: Counter[str] = Counter()
     failed: list[str] = []
+    unsupported: list[str] = []
     for path in paths:
         try:
             parsed = parse_filing(path)
         except UnsupportedForm as skip:
             logger.info("%s", skip)
             skipped[skip.return_type] += 1
+            unsupported.append(object_id_from_path(path))
             continue
         except (etree.XMLSyntaxError, OSError) as error:
             logger.error("%s: could not parse XML: %s", path.name, error)
@@ -532,6 +541,7 @@ def parse_filings(paths: Iterable[Path]) -> ParseResult:
         schedule_o=_frame(schedule_o, SCHEDULE_O_COLUMNS, []),
         skipped=dict(skipped),
         failed=failed,
+        unsupported=unsupported,
     )
 
 
@@ -562,8 +572,31 @@ def missing_counts(filings: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(rows, columns=["return_type", "column", "missing", "of"])
 
 
+def run_parse(config: dict[str, Any], object_ids: Iterable[str]) -> ParseResult:
+    """Parse the extracted XML for exactly these OBJECT_IDs and write the tables.
+
+    Only manifest filings are read, so XML left in `xml_dir` by an older manifest
+    is never loaded. IDs with no file on disk are listed in `not_on_disk`.
+    Writes `paths.interim/<table>.parquet` for each of TABLE_NAMES.
+    """
+    folder = xml_dir(config)
+    paths, not_on_disk = [], []
+    for object_id in sorted(set(object_ids)):
+        path = xml_path(folder, object_id)
+        (paths if path.is_file() else not_on_disk).append(path)
+    result = parse_filings(paths)
+    result.not_on_disk = [object_id_from_path(p) for p in not_on_disk]
+    if not_on_disk:
+        logger.warning("%d manifest filings have no XML on disk", len(not_on_disk))
+
+    interim = Path(config["paths"]["interim"])
+    for name in TABLE_NAMES:
+        write_parquet(getattr(result, name), interim / f"{name}.parquet")
+    return result
+
+
 def main() -> None:
-    """Parse all extracted XML, print a summary, and write the four tables."""
+    """Parse the manifest's XML, print a summary, and write the four tables."""
     config = load_config()
     interim = Path(config["paths"]["interim"])
     log_path = interim / "parse.log"
@@ -578,10 +611,11 @@ def main() -> None:
         handlers=[console, logfile],
     )
 
-    paths = sorted(xml_dir(config).glob("*_public.xml"))
-    result = parse_filings(paths)
+    manifest = duckdb.read_parquet(manifest_path(config).as_posix()).df()
+    result = run_parse(config, manifest["OBJECT_ID"])
 
-    print(f"XML files               {len(paths):>7,}")
+    print(f"manifest filings        {len(manifest):>7,}")
+    print(f"  no XML on disk        {len(result.not_on_disk):>7,}")
     for return_type, count in result.filings["return_type"].value_counts().items():
         print(f"  parsed {return_type:<15}{count:>7,}")
     for return_type, count in sorted(result.skipped.items()):
@@ -597,11 +631,8 @@ def main() -> None:
     counts = missing_counts(result.filings)
     print("\nMissing (None) by field, for fields each form has:")
     print(counts.loc[counts["missing"] > 0].to_string(index=False))
-
-    for name in ("filings", "programs", "revenue_lines", "schedule_o"):
-        out = interim / f"{name}.parquet"
-        write_parquet(getattr(result, name), out)
-        print(f"Wrote {out}")
+    for name in TABLE_NAMES:
+        print(f"Wrote {interim / f'{name}.parquet'}")
     print(f"Per-filing missing-field log: {log_path}")
 
 

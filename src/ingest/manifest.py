@@ -128,10 +128,14 @@ def write_manifest(df: pd.DataFrame, path: Path) -> None:
     logger.info("Wrote %d rows to %s", len(df), path)
 
 
-def build_manifest(config: dict[str, Any]) -> tuple[pd.DataFrame, dict[str, int]]:
+def build_manifest(
+    config: dict[str, Any], candidates: pd.DataFrame | None = None
+) -> tuple[pd.DataFrame, dict[str, int]]:
     """Run every manifest stage for `config`.
 
-    Returns the manifest (OUTPUT_COLUMNS only) and the row count after each stage.
+    `candidates` is the output of `bmf.filter_candidates`. If omitted, it is
+    loaded from the BMF named by `config`. Returns the manifest (OUTPUT_COLUMNS
+    only) and the row count after each stage.
     """
     paths = index_paths(config)
     counts: dict[str, int] = {}
@@ -143,7 +147,8 @@ def build_manifest(config: dict[str, Any]) -> tuple[pd.DataFrame, dict[str, int]
     index = pd.concat(frames, ignore_index=True)
     counts["index rows, all years"] = len(index)
 
-    candidates = load_candidates(config)
+    if candidates is None:
+        candidates = load_candidates(config)
     counts["candidate EINs"] = len(candidates)
 
     matched = join_candidates(index, candidates)

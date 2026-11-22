@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Classifies North Carolina housing nonprofits from public IRS Form 990 data using the Claude API, and evaluates the classifier against hand labels and the IRS's own NTEE codes (Stage 1). A read-only SQL agent then writes landscape briefs from the cleaned data (Stage 2). This is a portfolio project, so code clarity and honest results matter more than features. Background and data sources are in `README.md`.
 
-**Status:** ingest has started. `src/ingest/bmf.py` loads the state BMF and filters candidate organizations (tested in `tests/test_bmf.py`). `src/ingest/manifest.py` joins the candidates to the yearly index CSVs, dedupes the filings, and writes `data/interim/manifest.parquet` (tested in `tests/test_manifest.py`). `src/ingest/extract.py` extracts only the manifest's XML to `data/interim/xml/`, using 7-Zip for Deflate64 zips (tested in `tests/test_extract.py`). `src/ingest/parse.py` parses 990 and 990-EZ XML per `docs/field_map.md` into `filings`, `programs`, `revenue_lines`, and `schedule_o` parquet tables in `data/interim/` (tested in `tests/test_parse.py`). Open item for `src/classify/`: missions that only say "See Schedule O" need a rule to pick replacement text from `schedule_o` and `activity_or_mission` (D-013). The rest of `src/` is empty, and the layout in `README.md` is the target. The run commands below won't work until their modules exist. `evals/agent_eval.py` and `docs/error_analysis.md` are planned, not written.
+**Status:** ingest has started. `src/ingest/bmf.py` loads the state BMF and filters candidate organizations (tested in `tests/test_bmf.py`). `src/ingest/manifest.py` joins the candidates to the yearly index CSVs, dedupes the filings, and writes `data/interim/manifest.parquet` (tested in `tests/test_manifest.py`). `src/ingest/extract.py` extracts only the manifest's XML to `data/interim/xml/`, using 7-Zip for Deflate64 zips (tested in `tests/test_extract.py`). `src/ingest/parse.py` parses 990 and 990-EZ XML per `docs/field_map.md` into `filings`, `programs`, `revenue_lines`, and `schedule_o` parquet tables in `data/interim/` (tested in `tests/test_parse.py`). `src/ingest/build.py` runs all four stages and loads the `ingest` schema of the DuckDB database (`src/ingest/schema.sql`, `docs/schema.md`, D-014), and `src/ingest/quality.py` prints the funnel and missing-field shares (tested in `tests/test_build.py` and `tests/test_quality.py`). Open items: organizations in the eval's random sample need their EINs added to the manifest input (D-009, D-014), and Cape Fear filtering needs a ZIP-to-county crosswalk (D-014). Open item for `src/classify/`: missions that only say "See Schedule O" need a rule to pick replacement text from `schedule_o` and `activity_or_mission` (D-013). The rest of `src/` is empty, and the layout in `README.md` is the target. The run commands below won't work until their modules exist. `evals/agent_eval.py` and `docs/error_analysis.md` are planned, not written.
 
 ## Commands
 
@@ -16,6 +16,7 @@ ruff format . && ruff check --fix .  # format and lint
 pytest                             # run tests
 pytest tests/test_<module>.py::test_<name>  # run a single test
 python -m src.ingest.build         # build the DuckDB database from data/raw/
+python -m src.ingest.quality       # print the ingest funnel and missing-field shares
 python -m src.classify.run         # classify organizations (calls the API)
 python evals/classify_eval.py      # Stage 1 eval
 ```
@@ -25,9 +26,9 @@ Development is on Windows: in PowerShell, set the key with `$env:ANTHROPIC_API_K
 
 ## Pipeline
 
-1. **Ingest** (`src/ingest/`): IRS BMF filtered to `config.yaml: state` → candidate EINs → join to the yearly index CSVs for `filing_years`, drop 990T, dedupe to the latest filing per EIN and tax period by `OBJECT_ID` (D-010) → `data/interim/manifest.parquet` → extract only the manifest's XML to `data/interim/xml/`, located by each zip's file list, not `XML_BATCH_ID` (D-011) → parse with `lxml` per `docs/field_map.md` into filings, programs, revenue-line, and Schedule O tables (990-PF skipped, missing fields None, D-012, D-013) → load into DuckDB at `paths.processed`.
-2. **Classify** (`src/classify/`): read mission and program service text from DuckDB, call `config.yaml: model`, and write one label per organization back to DuckDB.
-3. **Agent** (`src/agent/`): answers landscape questions with read-only SQL over the same database, Stage 1 labels included.
+1. **Ingest** (`src/ingest/`): IRS BMF filtered to `config.yaml: state` → candidate EINs → join to the yearly index CSVs for `filing_years`, drop 990T, dedupe to the latest filing per EIN and tax period by `OBJECT_ID` (D-010) → `data/interim/manifest.parquet` → extract only the manifest's XML to `data/interim/xml/`, located by each zip's file list, not `XML_BATCH_ID` (D-011) → parse with `lxml` per `docs/field_map.md` into filings, programs, revenue-line, and Schedule O tables (990-PF skipped, missing fields None, D-012, D-013) → load the `ingest` schema of the DuckDB file at `paths.processed`, atomically (D-014). Tables and keys: `docs/schema.md`.
+2. **Classify** (`src/classify/`): read mission and program service text from DuckDB, call `config.yaml: model`, and write one label per organization to the `classify` schema (never to `ingest`, which every build replaces).
+3. **Agent** (`src/agent/`): answers landscape questions with read-only SQL over views in the `agent` schema, Stage 1 labels included.
 
 The `config.yaml` keys are `model`, `paths.{raw,interim,processed}`, `state`, `filing_years`, `label_sample_size`, and `ntee_adjacent` (NTEE codes ingested alongside group L, D-009). `src/config.py: load_config()` reads it.
 
@@ -37,11 +38,11 @@ There is one primary label per organization: `emergency_shelter`, `affordable_ho
 
 ## Layout
 
-- `src/ingest/`: BMF filter → index join → selective unzip → XML parse → dedupe → DuckDB. New data-loading code goes here.
+- `src/ingest/`: BMF filter → index join and dedupe → selective unzip → XML parse → DuckDB (`build.py`, `schema.sql`), plus `quality.py`. New data-loading code goes here.
 - `src/classify/`: prompts, API calls, label output. Prompts live in `src/classify/prompts/` as versioned files (`v001.md`, `v002.md`, ...).
 - `src/agent/`: SQL tool, agent loop, brief writer.
 - `evals/`: eval scripts, `evals/labels/` (hand labels and labeling guide), and `evals/results/` (saved eval output, the only source for numbers in `README.md`).
-- `docs/decisions.md`: decision log. `docs/error_analysis.md`: what the model got wrong.
+- `docs/decisions.md`: decision log. `docs/schema.md`: database tables and keys. `docs/field_map.md`: XML paths parsed. `docs/error_analysis.md`: what the model got wrong.
 - `tests/`: pytest tests. `tests/fixtures/`: small sample files they use.
 - `data/`: raw, interim (including `data/interim/api_cache/`), and processed data. Never committed.
 - All paths and the model name come from `config.yaml`. Don't hardcode either.

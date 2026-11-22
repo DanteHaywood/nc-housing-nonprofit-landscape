@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any
 
 import duckdb
+import pandas as pd
 
 from src.config import load_config
 from src.ingest.manifest import manifest_path
@@ -248,25 +249,66 @@ def extract_filings(
     return result
 
 
-def main() -> None:
-    """Extract the manifest's XML files and print found, skipped, and missing counts."""
-    logging.basicConfig(level=logging.WARNING)
-    config = load_config()
-    manifest = duckdb.read_parquet(manifest_path(config).as_posix()).df()
+@dataclass
+class ExtractSummary:
+    """Everything one extract run found, for printing or loading."""
+
+    manifest_filings: int
+    zips_scanned: int
+    located: dict[str, Located]
+    missing: list[str]
+    moved: int  # located in a different zip than the index's XML_BATCH_ID
+    sevenzip: Path | None
+    result: ExtractResult
+    missing_rows: pd.DataFrame
+
+
+def run_extract(config: dict[str, Any], manifest: pd.DataFrame) -> ExtractSummary:
+    """Locate and extract every `manifest` filing, and write the not-found report.
+
+    `manifest` has the columns of `manifest.OUTPUT_COLUMNS`. The report at
+    `missing_report_path(config)` is rewritten every run, header-only if nothing
+    is missing.
+    """
     paths = zip_paths(config)
     located, missing = locate_filings(manifest["OBJECT_ID"], paths)
-
     batch = dict(zip(manifest["OBJECT_ID"], manifest["XML_BATCH_ID"], strict=True))
     moved = sum(item.zip_path.stem != batch[oid] for oid, item in located.items())
     sevenzip = find_7zip()
     result = extract_filings(located.values(), xml_dir(config), sevenzip)
 
+    missing_rows = manifest.loc[
+        manifest["OBJECT_ID"].isin(missing), MISSING_REPORT_COLUMNS
+    ]
+    report = missing_report_path(config)
+    report.parent.mkdir(parents=True, exist_ok=True)
+    missing_rows.to_csv(report, index=False)
+    return ExtractSummary(
+        manifest_filings=len(manifest),
+        zips_scanned=len(paths),
+        located=located,
+        missing=missing,
+        moved=moved,
+        sevenzip=sevenzip,
+        result=result,
+        missing_rows=missing_rows,
+    )
+
+
+def main() -> None:
+    """Extract the manifest's XML files and print found, skipped, and missing counts."""
+    logging.basicConfig(level=logging.WARNING)
+    config = load_config()
+    manifest = duckdb.read_parquet(manifest_path(config).as_posix()).df()
+    summary = run_extract(config, manifest)
+    result = summary.result
+
     rows = [
-        ("manifest filings", len(manifest)),
-        ("zips scanned", len(paths)),
-        ("located in a zip", len(located)),
-        ("  in a different zip than XML_BATCH_ID", moved),
-        ("not found in any zip", len(missing)),
+        ("manifest filings", summary.manifest_filings),
+        ("zips scanned", summary.zips_scanned),
+        ("located in a zip", len(summary.located)),
+        ("  in a different zip than XML_BATCH_ID", summary.moved),
+        ("not found in any zip", len(summary.missing)),
         ("extracted this run", len(result.extracted)),
         ("already extracted (skipped)", len(result.skipped)),
         ("unreadable", len(result.unreadable)),
@@ -274,16 +316,15 @@ def main() -> None:
     width = max(len(name) for name, _ in rows)
     for name, count in rows:
         print(f"{name:<{width}}  {count:>7,}")
-    print(f"7-Zip: {sevenzip or 'not found'}")
+    print(f"7-Zip: {summary.sevenzip or 'not found'}")
 
-    report = missing_report_path(config)
-    missing_rows = manifest.loc[
-        manifest["OBJECT_ID"].isin(missing), MISSING_REPORT_COLUMNS
-    ]
-    missing_rows.to_csv(report, index=False)
-    if missing:
-        print(f"\nNot found in any zip (first 20 of {len(missing)}; all in {report}):")
-        print(missing_rows.head(20).to_string(index=False))
+    if summary.missing:
+        report = missing_report_path(config)
+        print(
+            f"\nNot found in any zip (first 20 of {len(summary.missing)};"
+            f" all in {report}):"
+        )
+        print(summary.missing_rows.head(20).to_string(index=False))
     if result.unreadable:
         print(f"\nUnreadable (first 20 of {len(result.unreadable)}):")
         print("\n".join(sorted(result.unreadable)[:20]))

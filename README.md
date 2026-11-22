@@ -71,7 +71,7 @@ A Claude agent that answers landscape questions in plain language, e.g. *"Which 
 | IRS Form 990 series e-file (XML) | Financials, mission, and program descriptions. Monthly zipped partitions with an index CSV for each year. | [IRS Form 990 series downloads](https://www.irs.gov/charities-non-profits/form-990-series-downloads) |
 | IRS Exempt Organizations Business Master File (EO BMF) | EIN, name, address, NTEE code. CSV by state. | [IRS EO BMF](https://www.irs.gov/charities-non-profits/exempt-organizations-business-master-file-extract-eo-bmf) |
 
-**Pipeline.** BMF (North Carolina) → candidate EIN list → join to the yearly index CSVs, drop 990-T returns, and keep the latest filing per EIN and tax period by `OBJECT_ID` (D-010) → extract *only* those XML files, finding each one by the zips' file lists rather than the index's batch ID (D-011) → parse with `lxml` into filing, program, revenue-line, and Schedule O tables (D-012, D-013) → load into DuckDB.
+**Pipeline.** BMF (North Carolina) → candidate EIN list → join to the yearly index CSVs, drop 990-T returns, and keep the latest filing per EIN and tax period by `OBJECT_ID` (D-010) → extract *only* those XML files, finding each one by the zips' file lists rather than the index's batch ID (D-011) → parse with `lxml` into filing, program, revenue-line, and Schedule O tables (D-012, D-013) → load into DuckDB, in an `ingest` schema that each build replaces atomically, next to the `classify` and `agent` schemas it never touches (D-014; tables in `docs/schema.md`).
 
 **Data conventions**
 - **EINs are strings.** They are always 9 digits, zero-padded, and never cast to integers (casting would drop leading zeros).
@@ -110,9 +110,9 @@ The model name, all file paths, and other settings live in `config.yaml`, so not
 │   ├── raw/                # BMF CSV, index CSVs, zip partitions
 │   ├── interim/            # Extracted XML subset
 │   │   └── api_cache/      # Cached Claude API responses (JSONL)
-│   └── processed/          # DuckDB database
+│   └── processed/          # DuckDB database (schemas: ingest, classify, agent)
 ├── src/
-│   ├── ingest/             # BMF filter, index join, selective unzip, XML parse, dedupe
+│   ├── ingest/             # BMF filter, index join, selective unzip, XML parse, DB build, quality report
 │   ├── classify/           # Claude API calls, label output
 │   │   └── prompts/        # Versioned prompts (v001.md, v002.md, ...)
 │   └── agent/              # SQL tool, agent loop, brief writer
@@ -123,6 +123,8 @@ The model name, all file paths, and other settings live in `config.yaml`, so not
 │   └── agent_eval.py       # Numeric grounding and benchmark questions
 ├── docs/
 │   ├── decisions.md        # Design choices and why
+│   ├── schema.md           # Database tables, keys, and owners
+│   ├── field_map.md        # 990 / 990-EZ XML paths parsed
 │   └── error_analysis.md   # What Claude got wrong and what changed
 └── tests/
     └── fixtures/           # Small sample files for tests (never real data/)
@@ -147,8 +149,9 @@ $env:ANTHROPIC_API_KEY = "..."            # PowerShell
 
 # 3. Put the IRS files in data/raw/ (see Data above)
 
-# 4. Build the database
+# 4. Build the database, then check the funnel and missing fields
 python -m src.ingest.build
+python -m src.ingest.quality
 
 # 5. Classify and evaluate
 python -m src.classify.run                # add --refresh to bypass the API cache
