@@ -44,13 +44,14 @@ def count(config: dict[str, Any], table: str) -> int:
 def test_row_counts(built_config: dict[str, Any]) -> None:
     counts = {table: count(built_config, table) for table in LOAD_ORDER}
     assert counts == {
-        "organizations": 6,  # the full BMF, not just candidates
+        "organizations": 7,  # the full BMF, not just candidates
+        "state_index": 6,  # every org's index filings, 990T dropped, deduped
         "filing_index": 5,  # the manifest, after 990T and dedupe
         "filings": 3,
         "programs": 10,
         "revenue_lines": 5,
         "schedule_o": 27,
-        "funnel": 14,
+        "funnel": 16,
     }
 
 
@@ -73,12 +74,14 @@ def test_filing_index_status(built_config: dict[str, Any]) -> None:
 def test_funnel(built_config: dict[str, Any]) -> None:
     rows = query(built_config, "SELECT stage, count FROM ingest.funnel ORDER BY step")
     assert rows == [
-        ("BMF organizations", 6),
-        ("candidates: NTEE L", 4),
-        ("candidates: adjacent NTEE", 1),
-        ("index rows, 2024, 2025", 7),
-        ("index rows matching a candidate", 7),
-        ("candidates with an index row", 5),
+        ("BMF organizations", 7),
+        ("candidates: NTEE L", 3),
+        ("candidates: adjacent NTEE", 2),
+        ("eval sample EINs outside the candidates", 0),
+        ("index rows, 2024, 2025", 8),
+        ("state filings in the index (no 990T, deduped)", 6),
+        ("index rows matching a selected EIN", 7),
+        ("selected EINs with an index row", 5),
         ("rows after dropping 990T", 6),
         ("filings after dedupe (manifest)", 5),
         ("located in a zip", 4),

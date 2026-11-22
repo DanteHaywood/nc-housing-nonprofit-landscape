@@ -3,9 +3,18 @@ paths:
   raw: data/raw
   interim: data/interim
   processed: data/processed/landscape.duckdb
+  labels: evals/labels
 state: NC
 filing_years: [2024, 2025]
 label_sample_size: 100
+# How the labeled set is drawn and split (D-015). Group sizes must add up to
+# label_sample_size. Random-group reserves stand in for any sampled org whose
+# filing fails to ingest.
+label_sample:
+  seed: 20261122
+  groups: {ntee_L: 40, ntee_adjacent: 30, random: 30}
+  random_reserves: 10
+  dev_size: 40
 # NTEE codes adjacent to housing (group L is always included). Matched on the
 # first 3 characters, so P73Z and S200 match P73 and S20. See D-009.
 ntee_adjacent: [P60, P70, P73, P75, P85, S20, S21, S22, S30, S31]

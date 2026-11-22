@@ -178,6 +178,7 @@ def test_build_manifest_end_to_end(tmp_path: Path) -> None:
         "index_2025 rows": 3,
         "index rows, all years": 11,
         "candidate EINs": 6,
+        "extra EINs": 0,
         "rows matching candidates": 10,
         "candidate EINs with a filing": 6,
         "rows after dropping 990T": 9,

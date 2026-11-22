@@ -250,3 +250,31 @@ The index, not the XML, is the authority for each filing's EIN and tax period. P
 Two things still need work:
 - Organizations in the eval's random sample (D-009) won't have filings until their EINs are added to the manifest's input.
 - Cape Fear briefs (D-006) need a ZIP-to-county crosswalk, a new data source, before `organizations.zip5` can be filtered by region.
+
+## D-015: Drawing and splitting the labeled set
+
+**Status:** Proposed
+**Date:** 2026-11-22
+
+**Context.** The eval needs about 100 hand-labeled NC organizations (D-006) from three groups: NTEE major group L, the adjacent codes, and a random sample from outside the candidates (D-009). Ingest had only extracted candidates' XML, so all 56,894 non-candidates had no text to label. Prompt iteration also needs held-out data. If the same 100 labels are used to tune the prompt and to report its score, the score is optimistic.
+
+**Decision.** `evals/make_sample.py` draws the sample from DuckDB with a fixed seed (`config.yaml: label_sample`).
+- **Groups:**
+  - 40 `ntee_L` and 30 `ntee_adjacent`, from organizations with a parsed filing (483 and 530 in the frames)
+  - 30 `random`, from non-candidate organizations with a 990 or 990-EZ in the 2024–25 index (14,753), plus 10 ranked reserves
+- **Two steps, with an ingest rebuild between them.**
+  - `draw` writes `evals/labels/sample.csv`.
+  - The build then ingests every EIN in that file, reserves included. A new `ingest.state_index` table holds every state organization's index filings, which is where the random frame comes from.
+  - `sheet` takes each group's first organizations in rank order that have a parsed filing. Reserves fill any gaps.
+- **Split:** 40 dev and 60 test, in each group's proportions (16/12/12 and 24/18/18), taken in rank order.
+- **Blind sheets:** `labels_dev.csv` and `labels_test.csv` carry the filing text (mission, Part I activity line, programs with expenses, mission/program Schedule O notes) and empty `label` and `notes` columns. They leave out the NTEE code and sample group, so hand labels aren't anchored on the baseline they're scored against. Rows are shuffled.
+- **Frozen files:** neither step overwrites an existing file. Redrawing or relabeling needs a deliberate delete and a new entry here.
+- **Labeling guide:** `evals/labels/labeling_guide.md` is drafted from D-008. Prompt work uses only the dev set.
+
+**Alternatives.** Drawing the random group from organizations already ingested would have meant drawing from candidates only, which defeats its purpose. Drawing from the whole BMF would have picked mostly 990-N filers with no text. A random rather than stratified split could leave a group almost absent from dev. Showing NTEE codes on the sheet would make labeling faster but bias the comparison toward NTEE.
+
+**Consequences.**
+- **Frames:** in the NC draw (seed 20261122), all 40 random-group EINs parsed, so no reserves were used. Every sampled organization has mission and program text.
+- **Base rate:** the random group is mostly non-housing (education, religion, recreation, and 8 with no NTEE code). Results should be reported by group, not only overall.
+- **Proportions:** the sample isn't proportional to the state's population of nonprofits, so its overall accuracy isn't a statewide estimate.
+- **Rebuilds:** the build now depends on `evals/labels/sample.csv`. Because the file is frozen, rebuilds stay reproducible.

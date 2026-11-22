@@ -42,6 +42,8 @@ Claude reads each organization's mission and program service descriptions from i
 - organizations coded as adjacent human services and community development categories, and
 - a random sample.
 
+The set is 40 L, 30 adjacent, and 30 random organizations, split into a 40-organization dev set for prompt work and a 60-organization test set for reporting. Hand labeling is blind to NTEE codes, and follows [`evals/labels/labeling_guide.md`](evals/labels/labeling_guide.md) (D-015).
+
 Claude's labels are compared to the hand labels, and so are the NTEE codes. **The baseline to beat is NTEE.** The write-up covers where Claude is wrong, why, and what changed in the prompt as a result.
 
 Hand labels are never changed to match model output. Any label change gets an entry in `docs/decisions.md` saying why.
@@ -153,7 +155,12 @@ $env:ANTHROPIC_API_KEY = "..."            # PowerShell
 python -m src.ingest.build
 python -m src.ingest.quality
 
-# 5. Classify and evaluate
+# 5. Draw the labeled sample, ingest it, and write the blank labeling sheets
+python evals/make_sample.py draw
+python -m src.ingest.build
+python evals/make_sample.py sheet
+
+# 6. Classify and evaluate
 python -m src.classify.run                # add --refresh to bypass the API cache
 python evals/classify_eval.py
 ```

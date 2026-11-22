@@ -32,6 +32,18 @@ CREATE TABLE ingest.organizations (
     bmf_revenue_amt   BIGINT
 );
 
+-- Every state organization's filings in the yearly indexes, ingested or not:
+-- 990-T dropped, latest per EIN and tax period (the D-010 rule). This is the
+-- frame the eval's random group is drawn from (D-015). No XML behind most rows.
+CREATE TABLE ingest.state_index (
+    object_id    VARCHAR PRIMARY KEY CHECK (length(object_id) = 18),
+    ein          VARCHAR NOT NULL REFERENCES ingest.organizations (ein),
+    tax_period   VARCHAR NOT NULL,
+    return_type  VARCHAR NOT NULL,       -- 990, 990EZ, 990PF
+    index_year   INTEGER NOT NULL,
+    UNIQUE (ein, tax_period)
+);
+
 -- One row per filing selected by the manifest (latest per EIN and tax period,
 -- D-010), with what happened to it. The funnel and coverage gaps come from here.
 CREATE TABLE ingest.filing_index (

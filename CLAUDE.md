@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Classifies North Carolina housing nonprofits from public IRS Form 990 data using the Claude API, and evaluates the classifier against hand labels and the IRS's own NTEE codes (Stage 1). A read-only SQL agent then writes landscape briefs from the cleaned data (Stage 2). This is a portfolio project, so code clarity and honest results matter more than features. Background and data sources are in `README.md`.
 
-**Status:** ingest has started. `src/ingest/bmf.py` loads the state BMF and filters candidate organizations (tested in `tests/test_bmf.py`). `src/ingest/manifest.py` joins the candidates to the yearly index CSVs, dedupes the filings, and writes `data/interim/manifest.parquet` (tested in `tests/test_manifest.py`). `src/ingest/extract.py` extracts only the manifest's XML to `data/interim/xml/`, using 7-Zip for Deflate64 zips (tested in `tests/test_extract.py`). `src/ingest/parse.py` parses 990 and 990-EZ XML per `docs/field_map.md` into `filings`, `programs`, `revenue_lines`, and `schedule_o` parquet tables in `data/interim/` (tested in `tests/test_parse.py`). `src/ingest/build.py` runs all four stages and loads the `ingest` schema of the DuckDB database (`src/ingest/schema.sql`, `docs/schema.md`, D-014), and `src/ingest/quality.py` prints the funnel and missing-field shares (tested in `tests/test_build.py` and `tests/test_quality.py`). Open items: organizations in the eval's random sample need their EINs added to the manifest input (D-009, D-014), and Cape Fear filtering needs a ZIP-to-county crosswalk (D-014). Open item for `src/classify/`: missions that only say "See Schedule O" need a rule to pick replacement text from `schedule_o` and `activity_or_mission` (D-013). The rest of `src/` is empty, and the layout in `README.md` is the target. The run commands below won't work until their modules exist. `evals/agent_eval.py` and `docs/error_analysis.md` are planned, not written.
+**Status:** ingest has started. `src/ingest/bmf.py` loads the state BMF and filters candidate organizations (tested in `tests/test_bmf.py`). `src/ingest/manifest.py` joins the candidates to the yearly index CSVs, dedupes the filings, and writes `data/interim/manifest.parquet` (tested in `tests/test_manifest.py`). `src/ingest/extract.py` extracts only the manifest's XML to `data/interim/xml/`, using 7-Zip for Deflate64 zips (tested in `tests/test_extract.py`). `src/ingest/parse.py` parses 990 and 990-EZ XML per `docs/field_map.md` into `filings`, `programs`, `revenue_lines`, and `schedule_o` parquet tables in `data/interim/` (tested in `tests/test_parse.py`). `src/ingest/build.py` runs all four stages and loads the `ingest` schema of the DuckDB database (`src/ingest/schema.sql`, `docs/schema.md`, D-014), and `src/ingest/quality.py` prints the funnel and missing-field shares (tested in `tests/test_build.py` and `tests/test_quality.py`). `evals/make_sample.py` has drawn the labeled sample and written blank sheets to `evals/labels/` (D-015), and the build ingests the sample's EINs. Open items: Cape Fear filtering needs a ZIP-to-county crosswalk (D-014). Open item for `src/classify/`: missions that only say "See Schedule O" need a rule to pick replacement text from `schedule_o` and `activity_or_mission` (D-013). The rest of `src/` is empty, and the layout in `README.md` is the target. The run commands below won't work until their modules exist. `evals/agent_eval.py` and `docs/error_analysis.md` are planned, not written.
 
 ## Commands
 
@@ -17,6 +17,7 @@ pytest                             # run tests
 pytest tests/test_<module>.py::test_<name>  # run a single test
 python -m src.ingest.build         # build the DuckDB database from data/raw/
 python -m src.ingest.quality       # print the ingest funnel and missing-field shares
+python evals/make_sample.py draw   # draw the labeled sample (then rebuild, then `sheet`)
 python -m src.classify.run         # classify organizations (calls the API)
 python evals/classify_eval.py      # Stage 1 eval
 ```
@@ -30,7 +31,7 @@ Development is on Windows: in PowerShell, set the key with `$env:ANTHROPIC_API_K
 2. **Classify** (`src/classify/`): read mission and program service text from DuckDB, call `config.yaml: model`, and write one label per organization to the `classify` schema (never to `ingest`, which every build replaces).
 3. **Agent** (`src/agent/`): answers landscape questions with read-only SQL over views in the `agent` schema, Stage 1 labels included.
 
-The `config.yaml` keys are `model`, `paths.{raw,interim,processed}`, `state`, `filing_years`, `label_sample_size`, and `ntee_adjacent` (NTEE codes ingested alongside group L, D-009). `src/config.py: load_config()` reads it.
+The `config.yaml` keys are `model`, `paths.{raw,interim,processed,labels}`, `state`, `filing_years`, `label_sample_size`, `label_sample` (seed, group sizes, reserves, dev size; D-015), and `ntee_adjacent` (NTEE codes ingested alongside group L, D-009). `src/config.py: load_config()` reads it.
 
 ## Taxonomy
 
@@ -83,7 +84,7 @@ There is one primary label per organization: `emergency_shelter`, `affordable_ho
 - Never edit hand labels to match model output. A label change needs an entry in `docs/decisions.md` saying why.
 - Always report the NTEE baseline next to Claude's results.
 - Results in `README.md` come only from saved eval output in `evals/results/`. Never write estimated or illustrative numbers.
-- The labeled set is about 100 organizations statewide (`label_sample_size`), sampled on purpose from three groups: NTEE major group L, adjacent human services and community development codes, and a random sample.
+- The labeled set is about 100 organizations statewide (`label_sample_size`), sampled on purpose from three groups: NTEE major group L, adjacent human services and community development codes, and a random sample. `evals/make_sample.py` draws it (40/30/30) and splits it into a 40-org dev set and a 60-org test set (D-015). Prompt work looks only at dev. The labeling sheets are blind (no NTEE code or sample group). `evals/labels/sample.csv` and the label CSVs are never overwritten. Labeling follows `evals/labels/labeling_guide.md`.
 - Mapping NTEE codes onto the project taxonomy is a judgment call. It needs its own decision entry when it's made (see D-004).
 - Stage 2 briefs focus on the Cape Fear region. They must say that BMF addresses are headquarters, not service area (D-006).
 

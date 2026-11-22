@@ -128,30 +128,62 @@ def write_manifest(df: pd.DataFrame, path: Path) -> None:
     logger.info("Wrote %d rows to %s", len(df), path)
 
 
-def build_manifest(
-    config: dict[str, Any], candidates: pd.DataFrame | None = None
-) -> tuple[pd.DataFrame, dict[str, int]]:
-    """Run every manifest stage for `config`.
+def load_indexes(config: dict[str, Any]) -> tuple[pd.DataFrame, dict[str, int]]:
+    """Load every yearly index in `filing_years` into one frame.
 
-    `candidates` is the output of `bmf.filter_candidates`. If omitted, it is
-    loaded from the BMF named by `config`. Returns the manifest (OUTPUT_COLUMNS
-    only) and the row count after each stage.
+    Returns the rows and their counts (per year and in total).
     """
-    paths = index_paths(config)
     counts: dict[str, int] = {}
     frames = []
-    for year, path in paths.items():
+    for year, path in index_paths(config).items():
         frame = load_index(path, year)
         counts[f"index_{year} rows"] = len(frame)
         frames.append(frame)
     index = pd.concat(frames, ignore_index=True)
     counts["index rows, all years"] = len(index)
+    return index, counts
+
+
+def latest_filings_for(index: pd.DataFrame, eins: Iterable[str]) -> pd.DataFrame:
+    """Index rows for `eins`, without 990-T, deduped to the latest per EIN and period.
+
+    This is the manifest rule (D-010) applied to any set of EINs. The build
+    uses it for every organization in the state BMF.
+    """
+    rows = index.loc[index["EIN"].isin(set(eins))]
+    return dedupe_latest(drop_return_types(rows))
+
+
+def build_manifest(
+    config: dict[str, Any],
+    candidates: pd.DataFrame | None = None,
+    extra: pd.DataFrame | None = None,
+    loaded: tuple[pd.DataFrame, dict[str, int]] | None = None,
+) -> tuple[pd.DataFrame, dict[str, int]]:
+    """Run every manifest stage for `config`.
+
+    `candidates` is the output of `bmf.filter_candidates`. If omitted, it is
+    loaded from the BMF named by `config`. `extra` holds more EINs to ingest
+    that aren't candidates (the eval's sample, D-015), with the same columns and
+    `candidate_group` NULL. `loaded` is `load_indexes(config)`'s result, if the
+    caller already has it. Returns the manifest (OUTPUT_COLUMNS only) and the
+    row count after each stage.
+    """
+    index, index_counts = loaded if loaded is not None else load_indexes(config)
+    counts = dict(index_counts)
 
     if candidates is None:
         candidates = load_candidates(config)
     counts["candidate EINs"] = len(candidates)
+    selected = candidates
+    if extra is not None and not extra.empty:
+        overlap = set(extra["EIN"]) & set(candidates["EIN"])
+        if overlap:
+            raise ValueError(f"{len(overlap)} extra EINs are already candidates")
+        selected = pd.concat([candidates, extra], ignore_index=True)
+    counts["extra EINs"] = 0 if extra is None else len(extra)
 
-    matched = join_candidates(index, candidates)
+    matched = join_candidates(index, selected)
     counts["rows matching candidates"] = len(matched)
     counts["candidate EINs with a filing"] = matched["EIN"].nunique()
 

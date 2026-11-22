@@ -27,7 +27,8 @@ what `src/ingest/parse.py` produces.
 ## `ingest`
 
 ```
-organizations (ein) ──< filing_index (object_id) ──1:0..1── filings (object_id)
+organizations (ein) ──< state_index (object_id)   [every index filing, no XML]
+                     ──< filing_index (object_id) ──1:0..1── filings (object_id)
                                                               ├──< programs
                                                               ├──< revenue_lines
                                                               └──< schedule_o
@@ -38,7 +39,8 @@ funnel         = row counts per pipeline step (standalone)
 | Table | One row per | Key | Notes |
 |---|---|---|---|
 | `organizations` | organization in the state BMF, candidate or not | `ein` | NTEE code and major group, `candidate_group` (`ntee_L`, `ntee_adjacent`, or NULL), HQ address with `zip5`, BMF asset/income/revenue. The NTEE baseline, the frame for the eval's random sample (D-009), and the agent's directory. **The address is headquarters, not service area (D-006).** |
-| `filing_index` | filing the manifest selected (latest per EIN and tax period, D-010) | `object_id`; unique (`ein`, `tax_period`) | `status`: `parsed`, `unsupported_form` (990-PF), `not_in_zip`, `unreadable`, `not_extracted`, `parse_failed`. `zip_name` is the zip the XML was actually found in, while `xml_batch_id` is what the index claimed (D-011). |
+| `state_index` | index filing of any organization in the state (990-T dropped, latest per EIN and tax period) | `object_id`; unique (`ein`, `tax_period`) | Which organizations have an e-filed return, ingested or not. The eval's random group is drawn from it (D-015). |
+| `filing_index` | filing the manifest selected (candidates plus the eval sample's EINs; latest per EIN and tax period, D-010) | `object_id`; unique (`ein`, `tax_period`) | `status`: `parsed`, `unsupported_form` (990-PF), `not_in_zip`, `unreadable`, `not_extracted`, `parse_failed`. `zip_name` is the zip the XML was actually found in, while `xml_batch_id` is what the index claimed (D-011). |
 | `filings` | parsed 990 or 990-EZ | `object_id`; unique (`ein`, `tax_period`) | Mission, Part I activity line (990), and financials (D-012, D-013). 990 and 990-EZ share a column when the concept matches, and a column a form lacks is NULL for it. `tax_year` is the IRS `TaxYr` (the year the period *began*); use `tax_period` (YYYYMM the period ended) for ordering and trends. |
 | `programs` | Part III program | (`object_id`, `program_number`) | Description and expense/grant/revenue amounts. `part_iii_line` is 4a–4d on the 990, NULL on the 990-EZ. |
 | `revenue_lines` | 990 Part VIII line 2 revenue stream | (`object_id`, `line_number`) | Description and amount. Program service revenue by source, for funding mix. |

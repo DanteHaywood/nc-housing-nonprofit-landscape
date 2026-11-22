@@ -33,8 +33,8 @@ def share(shares: pd.DataFrame, scope: str, field: str) -> tuple[int, int, float
 # The synthetic filing's bare pointer doesn't count as mission text.
 def test_funnel_appends_organization_steps(con: duckdb.DuckDBPyConnection) -> None:
     steps = funnel(con)
-    assert steps["step"].tolist() == list(range(1, 17))
-    assert steps.iloc[0].tolist() == [1, "BMF organizations", 6]
+    assert steps["step"].tolist() == list(range(1, 19))
+    assert steps.iloc[0].tolist() == [1, "BMF organizations", 7]
     assert steps.iloc[-2:]["count"].tolist() == [3, 2]
     assert steps.iloc[-2]["stage"] == "organizations with a parsed filing"
 

@@ -11,10 +11,14 @@ are the two real fixture XMLs plus two synthetic ones, chosen so that every
 |           |      | + a 990T row                    | dropped (990T)    |
 | 920731806 | L40  | real 990-EZ (Lifes Good)        | parsed            |
 |           |      | + an older row, same period     | dropped (dedupe)  |
-| 444444444 | L30  | synthetic 990-EZ, bare pointer  | parsed            |
+| 444444444 | P73  | synthetic 990-EZ, bare pointer  | parsed            |
 | 111111111 | P85  | synthetic 990-PF                | unsupported_form  |
 | 222222222 | L20  | listed in the index, in no zip  | not_in_zip        |
 | 333333333 | none | not a candidate                 | (no filing)       |
+| 555555555 | P20  | not a candidate; 990-EZ in zip  | only if sampled   |
+
+555555555 is the eval's "random" frame: a non-candidate with a 990-EZ in the
+index. The build ingests it only once its EIN is in `labels/sample.csv`.
 """
 
 import shutil
@@ -30,6 +34,7 @@ FIXTURE_XML = Path(__file__).parent / "fixtures" / "xml"
 REAL_990 = "202522749349301342"
 REAL_990EZ = "202523219349202597"
 POINTER_990EZ = "202510009349200004"
+RANDOM_990EZ = "202510009349200006"
 PF = "202510009349100001"
 NOT_IN_ZIP = "202410009349300002"
 DROPPED_990T = "202510009349300005"
@@ -47,11 +52,12 @@ BMF_ROWS = [
      "1581093", "714067", "714067"),
     ("920731806", "LIFES GOOD STAY HERE", "28202-0000", "L40",
      "16338", "179716", "179716"),
-    ("444444444", "POINTER HOUSING INC", "28401-1234", "L30", "0", "0", "0"),
+    ("444444444", "POINTER HOUSING INC", "28401-1234", "P73", "0", "0", "0"),
     ("111111111", "SAMPLE FOUNDATION", "27601-0000", "P85",
      "500000", "20000", "20000"),
     ("222222222", "MISSING FILING INC", "27701-0000", "L20", "", "", ""),
     ("333333333", "UNCODED ORG", "28801-0000", "", "10", "10", "10"),
+    ("555555555", "RENT HELP INC", "28403-0000", "P20", "100", "50", "50"),
 ]  # fmt: skip
 
 INDEX_HEADER = (
@@ -70,6 +76,7 @@ INDEX_ROWS = {
         ("920731806", "202412", "990EZ", REAL_990EZ),
         ("444444444", "202412", "990EZ", POINTER_990EZ),
         ("111111111", "202412", "990PF", PF),
+        ("555555555", "202412", "990EZ", RANDOM_990EZ),
     ],
 }
 
@@ -114,6 +121,19 @@ POINTER_EZ_FORM = (
 )
 
 
+# A housing org coded outside the candidate NTEE codes: what the random group
+# exists to catch (D-009).
+RANDOM_EZ_FORM = (
+    "<IRS990EZ><PrimaryExemptPurposeTxt>Emergency rent and utility help for "
+    "families facing eviction.</PrimaryExemptPurposeTxt>"
+    "<TotalRevenueAmt>50</TotalRevenueAmt>"
+    "<ProgramSrvcAccomplishmentGrp><DescriptionProgramSrvcAccomTxt>Paid one "
+    "month of rent for 12 households.</DescriptionProgramSrvcAccomTxt>"
+    "<ProgramServiceExpensesAmt>40</ProgramServiceExpensesAmt>"
+    "</ProgramSrvcAccomplishmentGrp></IRS990EZ>"
+)
+
+
 def make_project(root: Path) -> dict[str, Any]:
     """Write the miniature raw/ folder under `root` and return a matching config."""
     raw = root / "raw"
@@ -126,6 +146,7 @@ def make_project(root: Path) -> dict[str, Any]:
         REAL_990EZ: (FIXTURE_XML / f"{REAL_990EZ}_public.xml").read_bytes(),
         POINTER_990EZ: synthetic_xml("444444444", "990EZ", POINTER_EZ_FORM).encode(),
         PF: synthetic_xml("111111111", "990PF", "<IRS990PF/>").encode(),
+        RANDOM_990EZ: synthetic_xml("555555555", "990EZ", RANDOM_EZ_FORM).encode(),
     }
     with zipfile.ZipFile(raw / "2025_TEOS_XML_01A.zip", "w", zipfile.ZIP_DEFLATED) as z:
         for object_id, data in members.items():
@@ -140,6 +161,7 @@ def make_project(root: Path) -> dict[str, Any]:
             "raw": str(raw),
             "interim": str(root / "interim"),
             "processed": str(root / "processed" / "landscape.duckdb"),
+            "labels": str(root / "labels"),
         },
         "state": "NC",
         "filing_years": [2024, 2025],

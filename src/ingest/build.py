@@ -23,7 +23,13 @@ import pandas as pd
 from src.config import load_config
 from src.ingest.bmf import bmf_path, filter_candidates, load_bmf
 from src.ingest.extract import ExtractSummary, run_extract
-from src.ingest.manifest import build_manifest, manifest_path, write_manifest
+from src.ingest.manifest import (
+    build_manifest,
+    latest_filings_for,
+    load_indexes,
+    manifest_path,
+    write_manifest,
+)
 from src.ingest.parse import FORM_990, FORM_990EZ, ParseResult, run_parse
 
 logger = logging.getLogger(__name__)
@@ -33,6 +39,7 @@ SCHEMA = "ingest"
 # Load order: parents before children, so foreign keys check as rows go in.
 LOAD_ORDER = [
     "organizations",
+    "state_index",
     "filing_index",
     "filings",
     "programs",
@@ -58,6 +65,15 @@ BMF_TEXT = {
     "RULING": "ruling",
     "TAX_PERIOD": "bmf_tax_period",
 }
+# The eval's sample (evals/make_sample.py, D-015). Its EINs are ingested too.
+LABEL_SAMPLE_FILE = "sample.csv"
+STATE_INDEX_COLUMNS = {
+    "OBJECT_ID": "object_id",
+    "EIN": "ein",
+    "TAX_PERIOD": "tax_period",
+    "RETURN_TYPE": "return_type",
+    "index_year": "index_year",
+}
 MANIFEST_COLUMNS = {
     "OBJECT_ID": "object_id",
     "EIN": "ein",
@@ -80,6 +96,50 @@ class BuildResult:
 def database_path(config: dict[str, Any]) -> Path:
     """Return the DuckDB file named by `config.yaml: paths.processed`."""
     return Path(config["paths"]["processed"])
+
+
+def label_sample_eins(config: dict[str, Any]) -> set[str]:
+    """EINs in the eval's sample file, if `paths.labels/sample.csv` exists.
+
+    Reserves are included, so every organization the sheet might use is
+    ingested. Returns an empty set when there is no sample yet.
+    """
+    labels = config["paths"].get("labels")
+    if labels is None:
+        return set()
+    path = Path(labels) / LABEL_SAMPLE_FILE
+    if not path.is_file():
+        return set()
+    sample = pd.read_csv(path, dtype=str, keep_default_na=False)
+    return set(sample["ein"].str.zfill(9))
+
+
+def extra_frame(
+    bmf: pd.DataFrame, candidates: pd.DataFrame, eins: set[str]
+) -> pd.DataFrame:
+    """BMF rows for `eins` that aren't candidates, shaped like `candidates`.
+
+    Their `candidate_group` is None. EINs missing from the BMF are logged and
+    skipped.
+    """
+    missing = eins - set(bmf["EIN"])
+    if missing:
+        logger.warning("%d sample EINs are not in the BMF; skipped", len(missing))
+    rows = bmf.loc[bmf["EIN"].isin(eins) & ~bmf["EIN"].isin(candidates["EIN"])]
+    return rows.assign(candidate_group=None).reset_index(drop=True)
+
+
+def state_index_frame(index: pd.DataFrame, eins: pd.Series) -> pd.DataFrame:
+    """`ingest.state_index` rows: every BMF organization's index filings.
+
+    Same rule as the manifest (990-T dropped, latest per EIN and tax period),
+    but for every organization in the state, ingested or not. This is the frame
+    the eval's random group is drawn from (D-015).
+    """
+    rows = latest_filings_for(index, eins)
+    out = rows[list(STATE_INDEX_COLUMNS)].rename(columns=STATE_INDEX_COLUMNS)
+    out["index_year"] = out["index_year"].astype(int)
+    return out.reset_index(drop=True)
 
 
 def _blank_to_none(series: pd.Series) -> pd.Series:
@@ -193,6 +253,7 @@ def funnel_frame(rows: list[tuple[str, int]], built_at: datetime) -> pd.DataFram
 
 def funnel_rows(
     organizations: pd.DataFrame,
+    state_index: pd.DataFrame,
     manifest_counts: dict[str, int],
     extract: ExtractSummary,
     parse: ParseResult,
@@ -207,13 +268,15 @@ def funnel_rows(
         ("BMF organizations", len(organizations)),
         ("candidates: NTEE L", int(groups.get("ntee_L", 0))),
         ("candidates: adjacent NTEE", int(groups.get("ntee_adjacent", 0))),
+        ("eval sample EINs outside the candidates", manifest_counts["extra EINs"]),
         (f"index rows, {years}", manifest_counts["index rows, all years"]),
+        ("state filings in the index (no 990T, deduped)", len(state_index)),
         (
-            "index rows matching a candidate",
+            "index rows matching a selected EIN",
             manifest_counts["rows matching candidates"],
         ),
         (
-            "candidates with an index row",
+            "selected EINs with an index row",
             manifest_counts["candidate EINs with a filing"],
         ),
         ("rows after dropping 990T", manifest_counts["rows after dropping 990T"]),
@@ -257,8 +320,11 @@ def build(config: dict[str, Any]) -> BuildResult:
     bmf = load_bmf(bmf_path(config))
     candidates = filter_candidates(bmf, config["state"], config["ntee_adjacent"])
     organizations = organizations_frame(bmf, candidates)
+    extra = extra_frame(bmf, candidates, label_sample_eins(config))
 
-    manifest, manifest_counts = build_manifest(config, candidates)
+    loaded = load_indexes(config)
+    state_index = state_index_frame(loaded[0], organizations["ein"])
+    manifest, manifest_counts = build_manifest(config, candidates, extra, loaded)
     write_manifest(manifest, manifest_path(config))
     extract = run_extract(config, manifest)
     # Filings in no zip were already reported by extract; parse only the rest.
@@ -267,13 +333,16 @@ def build(config: dict[str, Any]) -> BuildResult:
     filing_index = filing_index_frame(manifest, extract, parse)
     tables = {
         "organizations": organizations,
+        "state_index": state_index,
         "filing_index": filing_index,
         "filings": _with_index_keys(parse.filings, filing_index, ["tax_period"]),
         "programs": _with_index_keys(parse.programs, filing_index, []),
         "revenue_lines": _with_index_keys(parse.revenue_lines, filing_index, []),
         "schedule_o": _with_index_keys(parse.schedule_o, filing_index, []),
         "funnel": funnel_frame(
-            funnel_rows(organizations, manifest_counts, extract, parse, config),
+            funnel_rows(
+                organizations, state_index, manifest_counts, extract, parse, config
+            ),
             datetime.now(),
         ),
     }
