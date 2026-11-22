@@ -169,3 +169,23 @@ Design decisions for this project, one entry per decision, newest at the bottom.
 **Alternatives.** Trusting `XML_BATCH_ID` would have missed 413 filings. The `zipfile-deflate64` package would keep everything in Python, but it adds a dependency that is untested on Python 3.15 and may need a C compiler to install. Skipping Deflate64 zips would have dropped 13% of filings.
 
 **Consequences.** Anyone rebuilding the data needs 7-Zip installed, which `README.md` now says. A tool outside Python is part of ingest, so a 7-Zip failure is logged with its error text and its filings are counted as unreadable. Scanning all 28 file lists takes about 7 seconds, so reruns stay fast. In the NC run, all 2,040 filings were found and extracted, and every file's filer EIN matches the manifest.
+
+## D-012: Parsing 990 and 990-EZ XML into three tables
+
+**Status:** Proposed
+**Date:** 2026-11-22
+
+**Context.** Classification and the landscape brief need each filing's mission, program descriptions, and headline financials in tables. `docs/field_map.md` lists the XML paths for the 990 and 990-EZ. The two forms use different tags for the same concepts, and each has fields the other lacks. The IRS usually leaves a field out when its value is zero, so absent tags are common (for example, 697 of 1,486 990s have no `GovernmentGrantsAmt`). 61 manifest filings are 990-PF, which the field map doesn't cover.
+
+**Decision.** `src/ingest/parse.py` reads each file with `lxml` and writes three tables to `paths.interim`:
+- `filings`: one row per filing. 990 and 990-EZ tags that mean the same thing share one column, and a column a form doesn't have is None for that form.
+- `programs`: one row per Part III program, with its line (4a–4d) on the 990.
+- `revenue_lines`: one row per 990 Part VIII line 2 revenue stream.
+
+990-PF files are skipped and counted. A missing or malformed field becomes None and is logged, one line per filing, to `paths.interim/parse.log`. Parsing never raises on bad data. Missing is kept distinct from zero: None means "not reported", and any rule treating it as 0 belongs in SQL with its own decision. Dollar amounts are ints, stored as BIGINT. Text has its whitespace collapsed. The IRS namespace is read from each file's root, so a file without it parses too.
+
+Changes to the field map: the 990-EZ salaries tag is `SalariesOtherCompEmplBnftAmt` (the map had `...EmplBnftsAmt`, which matched none of 493 filings). `ReturnTypeCd` is added, and so are the per-program `GrantAmt`, plus `ExpenseAmt` and `RevenueAmt` for "other" (4d) programs, to match lines 4a–4c.
+
+**Alternatives.** Filling missing amounts with 0 at parse time would hide the difference between "zero" and "not reported". Separate tables per form would make every downstream query handle two schemas. Parsing 990-PF with no field map would produce rows that are mostly None.
+
+**Consequences.** Analysis SQL must decide, per question, whether a NULL amount counts as 0. `tax_year` is the IRS `TaxYr`, the year the tax period began. For the 899 fiscal-year filers it is one less than the `TAX_PERIOD` end year. In the NC run, 1,979 filings parsed (1,486 990, 493 990-EZ) with 2,969 program rows and 2,317 revenue lines. None failed, and none had a malformed amount. 33 missions just point to Schedule O, which isn't parsed yet.

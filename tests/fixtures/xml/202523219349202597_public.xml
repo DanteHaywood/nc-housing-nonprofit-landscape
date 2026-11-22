@@ -1,0 +1,223 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Return xmlns="http://www.irs.gov/efile" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" returnVersion="2024v5.0">
+  <ReturnHeader binaryAttachmentCnt="0">
+    <ReturnTs>2025-11-17T11:11:12-05:00</ReturnTs>
+    <TaxPeriodEndDt>2024-12-31</TaxPeriodEndDt>
+    <PreparerFirmGrp>
+      <PreparerFirmEIN>262669494</PreparerFirmEIN>
+      <PreparerFirmName>
+        <BusinessNameLine1Txt>DAVIES GOLDSTEIN &amp; ASSOCIATES CPA'S</BusinessNameLine1Txt>
+      </PreparerFirmName>
+      <PreparerUSAddress>
+        <AddressLine1Txt>PO BOX 156</AddressLine1Txt>
+        <CityNm>MATTHEWS</CityNm>
+        <StateAbbreviationCd>NC</StateAbbreviationCd>
+        <ZIPCd>28106</ZIPCd>
+      </PreparerUSAddress>
+    </PreparerFirmGrp>
+    <ReturnTypeCd>990EZ</ReturnTypeCd>
+    <TaxPeriodBeginDt>2024-01-01</TaxPeriodBeginDt>
+    <Filer>
+      <EIN>920731806</EIN>
+      <BusinessName>
+        <BusinessNameLine1Txt>LIFES GOOD STAY HERE</BusinessNameLine1Txt>
+      </BusinessName>
+      <BusinessNameControlTxt>LIFE</BusinessNameControlTxt>
+      <PhoneNum>7042689218</PhoneNum>
+      <USAddress>
+        <AddressLine1Txt>1048 SCOTCH MEADOWS LOOP</AddressLine1Txt>
+        <CityNm>MONROE</CityNm>
+        <StateAbbreviationCd>NC</StateAbbreviationCd>
+        <ZIPCd>28110</ZIPCd>
+      </USAddress>
+    </Filer>
+    <BusinessOfficerGrp>
+      <PersonNm>DIANE JACKSON</PersonNm>
+      <PersonTitleTxt>TREASURER</PersonTitleTxt>
+      <PhoneNum>7042689218</PhoneNum>
+      <SignatureDt>2025-10-20</SignatureDt>
+    </BusinessOfficerGrp>
+    <IRSResponsiblePrtyInfoCurrInd>true</IRSResponsiblePrtyInfoCurrInd>
+    <PreparerPersonGrp>
+      <PreparerPersonNm>JEFFREY I GOLDSTEIN</PreparerPersonNm>
+      <PTIN>P00534322</PTIN>
+      <PhoneNum>7046840555</PhoneNum>
+      <PreparationDt>2025-11-03</PreparationDt>
+    </PreparerPersonGrp>
+    <TaxYr>2024</TaxYr>
+    <BuildTS>2025-03-06 01:10:19Z</BuildTS>
+  </ReturnHeader>
+  <ReturnData documentCnt="4">
+    <IRS990EZ documentId="RetDoc2" referenceDocumentId="RetDoc3">
+      <MethodOfAccountingCashInd>X</MethodOfAccountingCashInd>
+      <WebsiteAddressTxt>N/A</WebsiteAddressTxt>
+      <Organization501c3Ind referenceDocumentId="RetDoc4">X</Organization501c3Ind>
+      <TypeOfOrganizationCorpInd>X</TypeOfOrganizationCorpInd>
+      <GrossReceiptsAmt>179716</GrossReceiptsAmt>
+      <InfoInScheduleOPartIInd>X</InfoInScheduleOPartIInd>
+      <ContributionsGiftsGrantsEtcAmt>45502</ContributionsGiftsGrantsEtcAmt>
+      <ProgramServiceRevenueAmt>134214</ProgramServiceRevenueAmt>
+      <TotalRevenueAmt>179716</TotalRevenueAmt>
+      <SalariesOtherCompEmplBnftAmt>6105</SalariesOtherCompEmplBnftAmt>
+      <FeesAndOtherPymtToIndCntrctAmt>88756</FeesAndOtherPymtToIndCntrctAmt>
+      <OtherExpensesTotalAmt>68605</OtherExpensesTotalAmt>
+      <TotalExpensesAmt>163466</TotalExpensesAmt>
+      <ExcessOrDeficitForYearAmt>16250</ExcessOrDeficitForYearAmt>
+      <NetAssetsOrFundBalancesEOYAmt>16250</NetAssetsOrFundBalancesEOYAmt>
+      <InfoInScheduleOPartIIInd>X</InfoInScheduleOPartIIInd>
+      <CashSavingsAndInvestmentsGrp>
+        <EOYAmt>15838</EOYAmt>
+      </CashSavingsAndInvestmentsGrp>
+      <OtherAssetsTotalDetail>
+        <EOYAmt>500</EOYAmt>
+      </OtherAssetsTotalDetail>
+      <Form990TotalAssetsGrp>
+        <BOYAmt>0</BOYAmt>
+        <EOYAmt>16338</EOYAmt>
+      </Form990TotalAssetsGrp>
+      <SumOfTotalLiabilitiesGrp>
+        <EOYAmt>88</EOYAmt>
+      </SumOfTotalLiabilitiesGrp>
+      <NetAssetsOrFundBalancesGrp>
+        <BOYAmt>0</BOYAmt>
+        <EOYAmt>16250</EOYAmt>
+      </NetAssetsOrFundBalancesGrp>
+      <InfoInScheduleOPartIIIInd>X</InfoInScheduleOPartIIIInd>
+      <PrimaryExemptPurposeTxt>OUR MISSION IS TO CONNECT RESOURCES TO THE IDD COMMUNITY THAT WILL EMPOWER AND CREATE SOLUTIONS FOR THOSE IN NEED. DOING SO WILL CREATE A MOVEMENT OF CHANGE. LIFES GOOD STAY HERE ENCOURAGES ONE TO GAIN INTELLECTUAL INDEPENDENCE, HOUSING, SELF-AWARENESS, AND MUCH MORE.</PrimaryExemptPurposeTxt>
+      <ProgramSrvcAccomplishmentGrp>
+        <DescriptionProgramSrvcAccomTxt>1.ALTERNATIVE FAMILY LIVING - IN NORTH CAROLINA, AFL IS A RESIDENTIAL SUPPORT MODEL UNDER THE NC INNOVATIONS WAIVER, WHERE INDIVIDUALS WITH INTELLECTUAL AND DEVELOPMENTAL DISABILITIES (ID/DD) LIVE WITH A FAMILY (LICENSED OR UNLICENSED) THAT'S TRAINED TO PROVIDE PERSONALIZED CARE. IT'S DESIGNED TO BE PERSON-CENTERED, MEANING THE INDIVIDUAL'S PREFERENCES, GOALS, AND STRENGTHS GUIDE THE SUPPORT THEY RECEIVE.</DescriptionProgramSrvcAccomTxt>
+        <ProgramServiceExpensesAmt>58929</ProgramServiceExpensesAmt>
+      </ProgramSrvcAccomplishmentGrp>
+      <ProgramSrvcAccomplishmentGrp>
+        <DescriptionProgramSrvcAccomTxt>2.COMMUNITY NETWORKING - COMMUNITY NETWORKING FOR INDIVIDUALS WITH INTELLECTUAL AND DEVELOPMENTAL DISABILITIES (ID/DD) REFERS TO BUILDING MEANINGFUL CONNECTIONS BETWEEN THESE INDIVIDUALS AND THE BROADER COMMUNITY TO FOSTER INCLUSION, INDEPENDENCE, AND WELL-BEING. IT'S ABOUT CREATING OPPORTUNITIES FOR PEOPLE WITH ID/DD TO PARTICIPATE FULLY IN EVERYDAY LIFE - NOT JUST IN SPECIALIZED PROGRAMS, BUT IN THE SAME SPACES AND ACTIVITIES AS EVERYONE ELSE.</DescriptionProgramSrvcAccomTxt>
+        <ProgramServiceExpensesAmt>35830</ProgramServiceExpensesAmt>
+      </ProgramSrvcAccomplishmentGrp>
+      <ProgramSrvcAccomplishmentGrp>
+        <DescriptionProgramSrvcAccomTxt>3.SUPPORTED EMPLOYMENT - SUPPORTED EMPLOYMENT (SE) IS A VOCATIONAL REHABILITATION METHOD THAT HELPS ADULTS WITH SERIOUS DISABILITIES FIND COMPETITIVE WORK IN THE COMMUNITY AND PROVIDES THE SUPPORT THEY NEED TO SUCCEED.</DescriptionProgramSrvcAccomTxt>
+        <ProgramServiceExpensesAmt>54680</ProgramServiceExpensesAmt>
+      </ProgramSrvcAccomplishmentGrp>
+      <TotalProgramServiceExpensesAmt>149439</TotalProgramServiceExpensesAmt>
+      <OfficerDirectorTrusteeEmplGrp>
+        <PersonNm>ALCEEN FORD</PersonNm>
+        <TitleTxt>PRESIDENT</TitleTxt>
+        <AverageHrsPerWkDevotedToPosRt>10.00</AverageHrsPerWkDevotedToPosRt>
+        <CompensationAmt>0</CompensationAmt>
+      </OfficerDirectorTrusteeEmplGrp>
+      <OfficerDirectorTrusteeEmplGrp>
+        <PersonNm>DIANE JACKSON</PersonNm>
+        <TitleTxt>TREASURER</TitleTxt>
+        <AverageHrsPerWkDevotedToPosRt>5.00</AverageHrsPerWkDevotedToPosRt>
+        <CompensationAmt>0</CompensationAmt>
+      </OfficerDirectorTrusteeEmplGrp>
+      <OfficerDirectorTrusteeEmplGrp>
+        <PersonNm>JEANNINE SMITH</PersonNm>
+        <TitleTxt>SECRETARY</TitleTxt>
+        <AverageHrsPerWkDevotedToPosRt>5.00</AverageHrsPerWkDevotedToPosRt>
+        <CompensationAmt>0</CompensationAmt>
+      </OfficerDirectorTrusteeEmplGrp>
+      <ActivitiesNotPreviouslyRptInd>false</ActivitiesNotPreviouslyRptInd>
+      <ChgMadeToOrgnzngDocNotRptInd>false</ChgMadeToOrgnzngDocNotRptInd>
+      <OrganizationHadUBIInd>false</OrganizationHadUBIInd>
+      <SubjectToProxyTaxInd>false</SubjectToProxyTaxInd>
+      <OrganizationDissolvedEtcInd>false</OrganizationDissolvedEtcInd>
+      <Form1120PolFiledInd>false</Form1120PolFiledInd>
+      <MadeLoansToFromOfficersInd>false</MadeLoansToFromOfficersInd>
+      <EngagedInExcessBenefitTransInd>false</EngagedInExcessBenefitTransInd>
+      <ProhibitedTaxShelterTransInd>false</ProhibitedTaxShelterTransInd>
+      <BooksInCareOfDetail>
+        <PersonNm>DIANE JACKSON</PersonNm>
+        <USAddress>
+          <AddressLine1Txt>1048 SCOTCH MEADOWS LOOP</AddressLine1Txt>
+          <CityNm>MONROE</CityNm>
+          <StateAbbreviationCd>NC</StateAbbreviationCd>
+          <ZIPCd>28110</ZIPCd>
+        </USAddress>
+        <PhoneNum>7042689218</PhoneNum>
+      </BooksInCareOfDetail>
+      <ForeignFinancialAccountInd>false</ForeignFinancialAccountInd>
+      <ForeignOfficeInd>false</ForeignOfficeInd>
+      <DonorAdvisedFndsInd>false</DonorAdvisedFndsInd>
+      <OperateHospitalInd>false</OperateHospitalInd>
+      <TanningServicesProvidedInd>false</TanningServicesProvidedInd>
+      <RelatedOrganizationCtrlEntInd>false</RelatedOrganizationCtrlEntInd>
+      <TransactionWithControlEntInd>false</TransactionWithControlEntInd>
+      <PoliticalCampaignActyInd>false</PoliticalCampaignActyInd>
+      <LobbyingActivitiesInd>false</LobbyingActivitiesInd>
+      <SchoolOperatingInd>false</SchoolOperatingInd>
+      <TrnsfrExmptNonChrtblRltdOrgInd>false</TrnsfrExmptNonChrtblRltdOrgInd>
+      <PartVIOfCompOfHghstPdEmplTxt>NONE</PartVIOfCompOfHghstPdEmplTxt>
+      <PartVIHghstPdCntrctProfSrvcTxt>NONE</PartVIHghstPdCntrctProfSrvcTxt>
+      <FiledScheduleAInd>true</FiledScheduleAInd>
+    </IRS990EZ>
+    <IRS990ScheduleA documentId="RetDoc4">
+      <PubliclySupportedOrg509a2Ind>X</PubliclySupportedOrg509a2Ind>
+      <GiftsGrantsContrisRcvd509Grp>
+        <CurrentTaxYearAmt>45502</CurrentTaxYearAmt>
+        <TotalAmt>45502</TotalAmt>
+      </GiftsGrantsContrisRcvd509Grp>
+      <GrossReceiptsAdmissionsGrp>
+        <CurrentTaxYearAmt>134214</CurrentTaxYearAmt>
+        <TotalAmt>134214</TotalAmt>
+      </GrossReceiptsAdmissionsGrp>
+      <Total509Grp>
+        <CurrentTaxYearAmt>179716</CurrentTaxYearAmt>
+        <TotalAmt>179716</TotalAmt>
+      </Total509Grp>
+      <PublicSupportTotal509Amt>179716</PublicSupportTotal509Amt>
+      <TotalSupportCalendarYearGrp>
+        <CurrentTaxYearAmt>179716</CurrentTaxYearAmt>
+        <TotalAmt>179716</TotalAmt>
+      </TotalSupportCalendarYearGrp>
+      <PublicSupportCY509Pct>1.00000</PublicSupportCY509Pct>
+      <InvestmentIncomeCYPct>0.00000</InvestmentIncomeCYPct>
+      <InvestmentIncomePYPct>0.00000</InvestmentIncomePYPct>
+      <ThirtyThrPctSuprtTestsCY509Ind>X</ThirtyThrPctSuprtTestsCY509Ind>
+    </IRS990ScheduleA>
+    <IRS990ScheduleB documentId="RetDoc1">
+      <ContributorInformationGrp>
+        <ContributorNum>RESTRICTED</ContributorNum>
+        <ContributorBusinessName>
+          <BusinessNameLine1>RESTRICTED</BusinessNameLine1>
+        </ContributorBusinessName>
+        <ContributorUSAddress>
+          <AddressLine1>RESTRICTED</AddressLine1>
+          <AddressLine2>RESTRICTED</AddressLine2>
+          <City>RESTRICTED</City>
+          <State>RESTRICTED</State>
+          <ZIPCode>RESTRICTED</ZIPCode>
+        </ContributorUSAddress>
+        <TotalContributionsAmt>RESTRICTED</TotalContributionsAmt>
+      </ContributorInformationGrp>
+    </IRS990ScheduleB>
+    <IRS990ScheduleO documentId="RetDoc3">
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>FORM 990-EZ, PART I, LINE 16</FormAndLineReferenceDesc>
+        <ExplanationTxt>EXPENSES OFFICE 3,741 TRAVEL 134 CONFERENCES/MEETINGS 4,345 INSURANCE 3,671 HOUSING EXPENSES 23,099 EMPLOYEE TRAINING 3,458 LICENSING &amp; ACCREDITATION 15,393 RECRUITING 1,105 SERVICE FEES 632 SUBSCRIPTIONS 709 TELEPHONE 885 MISCELLANEOUS 11,433 TOTAL 68,605</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>FORM 990-EZ, PART II, LINE 24</FormAndLineReferenceDesc>
+        <ExplanationTxt>PREPAID EXPENSES AND DEFERRED CHARGES 0 500 TOTAL 0 500</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>FORM 990-EZ, PART II, LINE 26</FormAndLineReferenceDesc>
+        <ExplanationTxt>ACCOUNTS PAYABLE AND ACCRUED EXPENSES 0 88</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>FORM 990-EZ, PART III</FormAndLineReferenceDesc>
+        <ExplanationTxt>OUR MISSION IS TO CONNECT RESOURCES TO THE IDD COMMUNITY THAT WILL EMPOWER AND CREATE SOLUTIONS FOR THOSE IN NEED. DOING SO WILL CREATE A MOVEMENT OF CHANGE. LIFES GOOD STAY HERE ENCOURAGES ONE TO GAIN INTELLECTUAL INDEPENDENCE, HOUSING, SELF-AWARENESS, AND MUCH MORE.</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>FORM 990-EZ, PART III, LINE 28</FormAndLineReferenceDesc>
+        <ExplanationTxt>1.ALTERNATIVE FAMILY LIVING - IN NORTH CAROLINA, AFL IS A RESIDENTIAL SUPPORT MODEL UNDER THE NC INNOVATIONS WAIVER, WHERE INDIVIDUALS WITH INTELLECTUAL AND DEVELOPMENTAL DISABILITIES (ID/DD) LIVE WITH A FAMILY (LICENSED OR UNLICENSED) THAT'S TRAINED TO PROVIDE PERSONALIZED CARE. IT'S DESIGNED TO BE PERSON-CENTERED, MEANING THE INDIVIDUAL'S PREFERENCES, GOALS, AND STRENGTHS GUIDE THE SUPPORT THEY RECEIVE.</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>FORM 990-EZ, PART III, LINE 29</FormAndLineReferenceDesc>
+        <ExplanationTxt>2.COMMUNITY NETWORKING - COMMUNITY NETWORKING FOR INDIVIDUALS WITH INTELLECTUAL AND DEVELOPMENTAL DISABILITIES (ID/DD) REFERS TO BUILDING MEANINGFUL CONNECTIONS BETWEEN THESE INDIVIDUALS AND THE BROADER COMMUNITY TO FOSTER INCLUSION, INDEPENDENCE, AND WELL-BEING. IT'S ABOUT CREATING OPPORTUNITIES FOR PEOPLE WITH ID/DD TO PARTICIPATE FULLY IN EVERYDAY LIFE - NOT JUST IN SPECIALIZED PROGRAMS, BUT IN THE SAME SPACES AND ACTIVITIES AS EVERYONE ELSE.</ExplanationTxt>
+      </SupplementalInformationDetail>
+      <SupplementalInformationDetail>
+        <FormAndLineReferenceDesc>FORM 990-EZ, PART III, LINE 30</FormAndLineReferenceDesc>
+        <ExplanationTxt>3.SUPPORTED EMPLOYMENT - SUPPORTED EMPLOYMENT (SE) IS A VOCATIONAL REHABILITATION METHOD THAT HELPS ADULTS WITH SERIOUS DISABILITIES FIND COMPETITIVE WORK IN THE COMMUNITY AND PROVIDES THE SUPPORT THEY NEED TO SUCCEED.</ExplanationTxt>
+      </SupplementalInformationDetail>
+    </IRS990ScheduleO>
+  </ReturnData>
+</Return>

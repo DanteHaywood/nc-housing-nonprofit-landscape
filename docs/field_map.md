@@ -7,12 +7,14 @@ This is a selection of fields from the 990 and 990-EZ xml files that this projec
 * `ReturnHeader/Filer/EIN` — Unique Employer Identification Number.
 * `ReturnHeader/Filer/BusinessName/BusinessNameLine1Txt` — Legal name of the organization.
 * `ReturnHeader/TaxYr` — Tax year of the filing.
+* `ReturnHeader/ReturnTypeCd` — Form type (`990`, `990EZ`), used to pick which map applies. *(Added in D-012.)*
 
 ### 2. Mission & Program Service Descriptions
 * `IRS990/MissionDesc` — Part III primary exempt purpose/mission statement.
 * `IRS990/Desc` — Program Service Accomplishment #1 description (Part III, Line 4a).
 * `IRS990/ExpenseAmt` — Program Service Accomplishment #1 expenses.
 * `IRS990/RevenueAmt` — Program Service Accomplishment #1 revenue.
+* `IRS990/GrantAmt` — Program Service Accomplishment #1 grants. *(Added in D-012; also read inside each program group below.)*
 * `IRS990/ProgSrvcAccomActy2Grp/Desc` — Program Service Accomplishment #2 description (Part III, Line 4b).
 * `IRS990/ProgSrvcAccomActy2Grp/ExpenseAmt` — Program Service Accomplishment #2 expenses.
 * `IRS990/ProgSrvcAccomActy2Grp/RevenueAmt` — Program Service Accomplishment #2 revenue.
@@ -20,6 +22,7 @@ This is a selection of fields from the 990 and 990-EZ xml files that this projec
 * `IRS990/ProgSrvcAccomActy3Grp/ExpenseAmt` — Program Service Accomplishment #3 expenses.
 * `IRS990/ProgSrvcAccomActy3Grp/RevenueAmt` — Program Service Accomplishment #3 revenue.
 * `IRS990/ProgSrvcAccomActyOtherGrp/Desc` — Repeating node for all other program service descriptions (Part III, Line 4d / Schedule O).
+* `IRS990/ProgSrvcAccomActyOtherGrp/ExpenseAmt`, `/RevenueAmt`, `/GrantAmt` — Amounts for each "other" program, the same sub-fields as lines 4a–4c. *(Added in D-012.)*
 
 ### 3. Contributions & Government Grants
 * `IRS990/GovernmentGrantsAmt` — Total government grants received (Part VIII, Line 1e).
@@ -46,6 +49,7 @@ This is a selection of fields from the 990 and 990-EZ xml files that this projec
 * `ReturnHeader/Filer/EIN` — Unique Employer Identification Number.
 * `ReturnHeader/Filer/BusinessName/BusinessNameLine1Txt` — Legal name of the organization.
 * `ReturnHeader/TaxYr` — Tax year of the filing.
+* `ReturnHeader/ReturnTypeCd` — Form type (`990`, `990EZ`), used to pick which map applies. *(Added in D-012.)*
 
 ### 2. Mission & Program Service Descriptions
 * `IRS990EZ/PrimaryExemptPurposeTxt` — Part III primary exempt purpose/mission statement (equivalent to `MissionDesc` on Form 990).
@@ -69,7 +73,7 @@ This is a selection of fields from the 990 and 990-EZ xml files that this projec
 
 ### 5. Total Expenses
 * `IRS990EZ/GrantsAndSimilarAmountsPaidAmt` — Grants and similar amounts paid (Part I, Line 10).
-* `IRS990EZ/SalariesOtherCompEmplBnftsAmt` — Salaries, other compensation, and employee benefits (Part I, Line 12; omitted in this specific filing when 0).
+* `IRS990EZ/SalariesOtherCompEmplBnftAmt` — Salaries, other compensation, and employee benefits (Part I, Line 12; omitted when 0). *(Corrected from `...EmplBnftsAmt`, which matches no real filing; see D-012.)*
 * `IRS990EZ/FeesAndOtherPymtToIndCntrctAmt` — Professional fees and other payments to independent contractors (Part I, Line 13).
 * `IRS990EZ/OccupancyRentUtltsAndMaintAmt` — Occupancy, rent, utilities, and maintenance expenses (Part I, Line 14).
 * `IRS990EZ/OtherExpensesTotalAmt` — Other expenses detailed in Schedule O (Part I, Line 16).
