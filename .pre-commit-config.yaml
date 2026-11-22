@@ -15,4 +15,6 @@ repos:
       - id: check-yaml
       - id: check-toml
       - id: end-of-file-fixer
+        exclude: ^evals/labels/
       - id: trailing-whitespace
+        exclude: ^evals/labels/
