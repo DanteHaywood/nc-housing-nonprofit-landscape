@@ -71,7 +71,7 @@ A Claude agent that answers landscape questions in plain language, e.g. *"Which 
 | IRS Form 990 series e-file (XML) | Financials, mission, and program descriptions. Monthly zipped partitions with an index CSV for each year. | [IRS Form 990 series downloads](https://www.irs.gov/charities-non-profits/form-990-series-downloads) |
 | IRS Exempt Organizations Business Master File (EO BMF) | EIN, name, address, NTEE code. CSV by state. | [IRS EO BMF](https://www.irs.gov/charities-non-profits/exempt-organizations-business-master-file-extract-eo-bmf) |
 
-**Pipeline.** BMF (North Carolina) → candidate EIN list → join to the yearly index CSVs → extract *only* the matching XML files from each zip → parse with `lxml` → deduplicate to the latest filing per EIN and tax period → load into DuckDB.
+**Pipeline.** BMF (North Carolina) → candidate EIN list → join to the yearly index CSVs, drop 990-T returns, and keep the latest filing per EIN and tax period by `OBJECT_ID` (D-010) → extract *only* those XML files from each zip → parse with `lxml` → load into DuckDB.
 
 **Data conventions**
 - **EINs are strings.** They are always 9 digits, zero-padded, and never cast to integers (casting would drop leading zeros).

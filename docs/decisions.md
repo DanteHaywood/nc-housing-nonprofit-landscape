@@ -143,3 +143,16 @@ Design decisions for this project, one entry per decision, newest at the bottom.
 **Alternatives.** Adding P20 (multipurpose human services) would add 2,064 organizations, mostly not housing. Taking all of P and S would add chambers of commerce, service clubs, and similar groups. Both would cost more to ingest for little gain.
 
 **Consequences.** Housing organizations coded P20 or left uncoded (about a quarter of NC BMF rows have no NTEE code) are missed by this filter. The random-sample group in the labeled set is where those misses show up, so that sample must be drawn from the full BMF, not from these candidates.
+
+## D-010: Manifest dedupe key and return types
+
+**Status:** Proposed
+**Date:** 2026-11-22
+
+**Context.** The yearly index CSVs list more than one filing for some EIN and tax period pairs (amendments, resubmissions, and the same period showing up in both years' indexes). Ingest keeps one filing per pair. The index's `SUB_DATE` column only holds the processing year (`"2024"` on every 2024 row), so it can't order filings within a year. The index also lists 990-T returns, which report unrelated business income and have no mission or program text.
+
+**Decision.** `src/ingest/manifest.py` dedupes on the index, before any XML is extracted, so duplicate filings are never unzipped. It keeps the row with the highest `OBJECT_ID` per EIN and tax period, across all `filing_years`. `OBJECT_ID` is filled on every row, is always 18 digits, and starts with the processing year, so the highest value is the most recently processed filing. It is sorted as a fixed-width string, and the loader raises if any value isn't 18 digits. 990-T rows are dropped before the dedupe. 990, 990-EZ, and 990-PF are kept. The manifest is written to `paths.interim/manifest.parquet` through DuckDB, which avoids adding pyarrow as a dependency.
+
+**Alternatives.** Ordering by `SUB_DATE` was ruled out because it carries no information within a year. Deduping on EIN, tax period, and return type would keep 990-T rows as separate filings, but nothing downstream uses them. Keeping 990-T rows and deduping on EIN and tax period alone can pick a 990-T over the organization's real 990.
+
+**Consequences.** The rule relies on `OBJECT_ID` order matching IRS processing order. That holds for these two years, but should be checked again if older or newer index formats are added. In the NC run, 1,044 of 2,593 candidates have at least one e-filed return in 2024–2025, giving 2,040 filings (1,486 990, 493 990-EZ, 61 990-PF). Candidates without one are probably 990-N filers or have no e-filed return in these years.
