@@ -18,3 +18,8 @@ venv/
 .DS_Store
 .vscode/
 .idea/
+
+# Quarto / R render output
+docs/*.html
+docs/*_files/
+.Rhistory
