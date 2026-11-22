@@ -44,15 +44,23 @@ Claude reads each organization's mission and program service descriptions from i
 
 Claude's labels are compared to the hand labels, and so are the NTEE codes. **The baseline to beat is NTEE.** The write-up covers where Claude is wrong, why, and what changed in the prompt as a result.
 
+Hand labels are never changed to match model output. Any label change gets an entry in `docs/decisions.md` saying why.
+
+**How the classifier stays reproducible**
+- **Versioned prompts.** Prompts live in `src/classify/prompts/` as numbered files (`v001.md`, `v002.md`, ...). Changing a prompt means adding a new version, never editing an old one.
+- **Cached responses.** Every API response is saved as JSONL in `data/interim/api_cache/`, keyed by EIN, prompt version, and model. Reruns read from the cache unless `--refresh` is passed, so an eval can be reproduced without paying for the same calls twice.
+- **Validated output.** Claude returns one label from the fixed taxonomy plus a short reason. Anything outside the taxonomy is logged as an error, not coerced into a label.
+
 ### Stage 2: Landscape agent *(planned)*
 
 A Claude agent that answers landscape questions in plain language, e.g. *"Which organizations in the Cape Fear region provide supportive housing, and how has their revenue changed?"*
 
-- Claude gets one tool: a **read-only SQL tool** over the cleaned 990 database, which includes the Stage 1 labels.
+- Claude gets one tool: a **read-only SQL tool** over the cleaned 990 database, which includes the Stage 1 labels. It uses a read-only DuckDB connection, allows `SELECT` statements only, and caps results at 500 rows.
 - It writes a short brief: who is active, their size, revenue trends, funding mix, and visible gaps.
 - **All arithmetic happens in SQL. Claude never calculates figures itself.** Every number in a brief must come from a query result.
+- Every query the agent runs is saved alongside its brief.
 
-**The eval.** An automated grounding check verifies that every number in a brief appears in the query results the agent actually ran. A small set of benchmark questions with known answers checks coverage.
+**The eval.** An automated grounding check uses the saved query log to verify that every number in a brief appears in the results of a query the agent actually ran. A small set of benchmark questions with known answers checks coverage.
 
 ---
 
@@ -64,6 +72,10 @@ A Claude agent that answers landscape questions in plain language, e.g. *"Which 
 | IRS Exempt Organizations Business Master File (EO BMF) | EIN, name, address, NTEE code. CSV by state. | [IRS EO BMF](https://www.irs.gov/charities-non-profits/exempt-organizations-business-master-file-extract-eo-bmf) |
 
 **Pipeline.** BMF (North Carolina) → candidate EIN list → join to the yearly index CSVs → extract *only* the matching XML files from each zip → parse with `lxml` → deduplicate to the latest filing per EIN and tax period → load into DuckDB.
+
+**Data conventions**
+- **EINs are strings.** They are always 9 digits, zero-padded, and never cast to integers (casting would drop leading zeros).
+- **Dollar amounts are whole dollars**, stored as `BIGINT`.
 
 **Known limitations of the data**
 - **Lag.** Filings run one to two years behind.
@@ -81,7 +93,7 @@ A Claude agent that answers landscape questions in plain language, e.g. *"Which 
 - **lxml** to parse the XML; **pandas** for data handling; **DuckDB** as the analytical database
 - **pytest** for pipeline tests
 
-The model name and settings live in `config.yaml`, so results can be rerun on newer models and compared.
+The model name, all file paths, and other settings live in `config.yaml`, so nothing is hardcoded and results can be rerun on newer models and compared.
 
 ---
 
@@ -93,22 +105,27 @@ The model name and settings live in `config.yaml`, so results can be rerun on ne
 ├── README.md
 ├── CLAUDE.md               # Instructions for Claude Code when working in this repo
 ├── config.yaml             # Model, paths, sample sizes
+├── pyproject.toml          # Package metadata, Ruff and pytest config
 ├── data/                   # Not committed (raw IRS files are large)
 │   ├── raw/                # BMF CSV, index CSVs, zip partitions
 │   ├── interim/            # Extracted XML subset
+│   │   └── api_cache/      # Cached Claude API responses (JSONL)
 │   └── processed/          # DuckDB database
 ├── src/
 │   ├── ingest/             # BMF filter, index join, selective unzip, XML parse, dedupe
-│   ├── classify/           # Prompt, Claude API calls, label output
+│   ├── classify/           # Claude API calls, label output
+│   │   └── prompts/        # Versioned prompts (v001.md, v002.md, ...)
 │   └── agent/              # SQL tool, agent loop, brief writer
 ├── evals/
 │   ├── labels/             # Hand-labeled set (CSV) and labeling guide
+│   ├── results/            # Saved eval output (source of all reported numbers)
 │   ├── classify_eval.py    # Claude vs. hand labels vs. NTEE
 │   └── agent_eval.py       # Numeric grounding and benchmark questions
 ├── docs/
 │   ├── decisions.md        # Design choices and why
 │   └── error_analysis.md   # What Claude got wrong and what changed
 └── tests/
+    └── fixtures/           # Small sample files for tests (never real data/)
 ```
 
 ---
@@ -120,21 +137,44 @@ The model name and settings live in `config.yaml`, so results can be rerun on ne
 ```bash
 # 1. Install
 pip install -e ".[dev]"
-export ANTHROPIC_API_KEY=...
 
-# 2. Put the IRS files in data/raw/ (see Data above)
+# 2. Set your API key
+export ANTHROPIC_API_KEY=...              # bash / zsh
+$env:ANTHROPIC_API_KEY = "..."            # PowerShell
 
-# 3. Build the database
+# 3. Put the IRS files in data/raw/ (see Data above)
+
+# 4. Build the database
 python -m src.ingest.build
 
-# 4. Classify and evaluate
-python -m src.classify.run
+# 5. Classify and evaluate
+python -m src.classify.run                # add --refresh to bypass the API cache
 python evals/classify_eval.py
 ```
+
+The API key is read from the environment only. It is never written to code, config, logs, or output.
+
+---
+
+## Development
+
+- **Python 3.12.**
+- **Ruff** for formatting and linting (Black-compatible, line length 88, rules `E`, `F`, `I`, `UP`, `B`, `SIM`). Config is in `pyproject.toml`.
+- **pytest** for tests. Tests use small fixture files in `tests/fixtures/`, never files from `data/`, so ingest steps can be tested without the real IRS files.
+
+```bash
+ruff format . && ruff check --fix .            # format and lint
+pytest                                         # run all tests
+pytest tests/test_<module>.py::test_<name>     # run a single test
+```
+
+Run Ruff and pytest before merging a change.
 
 ---
 
 ## Results
+
+All figures in this section come from saved eval output in `evals/results/`, with the NTEE baseline reported next to Claude's results.
 
 ### Stage 1
 *Pending.* Will report: overall agreement with hand labels for Claude and for NTEE, per-category precision and recall, a confusion matrix, and the main error types with examples.
@@ -148,8 +188,10 @@ python evals/classify_eval.py
 
 - **Measure against the existing tool, not against nothing.** NTEE is what people use today, so it's the baseline.
 - **Keep math out of the model.** SQL computes the numbers; Claude explains them. That makes every figure traceable.
-- **Read-only access.** The agent's database connection can't modify data, and results are row-limited.
+- **Read-only access.** The agent's database connection can't modify data, and results are capped at 500 rows.
+- **Reproducible by default.** Cached responses and versioned prompts mean an eval can be rerun without new API calls or silent prompt drift.
 - **Start narrow.** One subsector and one state, so the hand-labeled set can be checked carefully.
+- **Decisions are logged, not rewritten.** Every real design choice gets an entry in `docs/decisions.md`. Accepted entries are never edited; a later entry supersedes them.
 
 ---
 
