@@ -156,3 +156,16 @@ Design decisions for this project, one entry per decision, newest at the bottom.
 **Alternatives.** Ordering by `SUB_DATE` was ruled out because it carries no information within a year. Deduping on EIN, tax period, and return type would keep 990-T rows as separate filings, but nothing downstream uses them. Keeping 990-T rows and deduping on EIN and tax period alone can pick a 990-T over the organization's real 990.
 
 **Consequences.** The rule relies on `OBJECT_ID` order matching IRS processing order. That holds for these two years, but should be checked again if older or newer index formats are added. In the NC run, 1,044 of 2,593 candidates have at least one e-filed return in 2024–2025, giving 2,040 filings (1,486 990, 493 990-EZ, 61 990-PF). Candidates without one are probably 990-N filers or have no e-filed return in these years.
+
+## D-011: Locating and extracting filings from the IRS zips
+
+**Status:** Proposed
+**Date:** 2026-11-22
+
+**Context.** Ingest has to pull 2,040 manifest filings out of 28 zip partitions (about 1.6 million members) without extracting any zip in full. The index's `XML_BATCH_ID` names a zip for each filing, but 413 of the 2,040 are actually in a different zip. Three 2025 zips (`05A`, `05B`, `11B`) use Deflate64 compression. Python's `zipfile` can list them but can't decompress them, and 272 manifest filings are only in those zips. Windows' built-in `tar.exe` fails on them ("Damaged Zip archive").
+
+**Decision.** `src/ingest/extract.py` reads every zip's file list and maps each `OBJECT_ID` to the zip that actually holds it, ignoring `XML_BATCH_ID`. Members compressed with a method `zipfile` supports are extracted with `zipfile`. Others (Deflate64) are extracted with the 7-Zip command-line tool, found on PATH or in its default Windows install folder, in one call per zip. Files are written to `paths.interim/xml/<OBJECT_ID>_public.xml`, through a temporary file or staging folder, so an interrupted run never leaves a partial file under its final name. A file that already exists with the member's uncompressed size is skipped. Filings found in no zip are listed in `paths.interim/extract_missing.csv`. If 7-Zip is missing, Deflate64 members are reported as unreadable instead of crashing.
+
+**Alternatives.** Trusting `XML_BATCH_ID` would have missed 413 filings. The `zipfile-deflate64` package would keep everything in Python, but it adds a dependency that is untested on Python 3.15 and may need a C compiler to install. Skipping Deflate64 zips would have dropped 13% of filings.
+
+**Consequences.** Anyone rebuilding the data needs 7-Zip installed, which `README.md` now says. A tool outside Python is part of ingest, so a 7-Zip failure is logged with its error text and its filings are counted as unreadable. Scanning all 28 file lists takes about 7 seconds, so reruns stay fast. In the NC run, all 2,040 filings were found and extracted, and every file's filer EIN matches the manifest.
