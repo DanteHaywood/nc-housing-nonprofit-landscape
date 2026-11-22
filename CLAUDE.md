@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Classifies North Carolina housing nonprofits from public IRS Form 990 data using the Claude API, and evaluates the classifier against hand labels and the IRS's own NTEE codes (Stage 1). A read-only SQL agent then writes landscape briefs from the cleaned data (Stage 2). This is a portfolio project, so code clarity and honest results matter more than features. Background and data sources are in `README.md`.
 
-**Status:** scaffold only. The `src/` packages are empty, and the layout in `README.md` is the target. The run commands below won't work until their modules exist. `evals/agent_eval.py` and `docs/error_analysis.md` are planned, not written.
+**Status:** ingest has started. `src/ingest/bmf.py` loads the state BMF and filters candidate organizations (tested in `tests/test_bmf.py`). The rest of `src/` is empty, and the layout in `README.md` is the target. The run commands below won't work until their modules exist. `evals/agent_eval.py` and `docs/error_analysis.md` are planned, not written.
 
 ## Commands
 
@@ -40,9 +40,10 @@ There is one primary label per organization: `emergency_shelter`, `affordable_ho
 - `src/ingest/`: BMF filter → index join → selective unzip → XML parse → dedupe → DuckDB. New data-loading code goes here.
 - `src/classify/`: prompts, API calls, label output. Prompts live in `src/classify/prompts/` as versioned files (`v001.md`, `v002.md`, ...).
 - `src/agent/`: SQL tool, agent loop, brief writer.
-- `evals/`: eval scripts and `evals/labels/` (hand labels and labeling guide).
+- `evals/`: eval scripts, `evals/labels/` (hand labels and labeling guide), and `evals/results/` (saved eval output, the only source for numbers in `README.md`).
 - `docs/decisions.md`: decision log. `docs/error_analysis.md`: what the model got wrong.
-- `data/`: raw, interim, and processed data. Never committed.
+- `tests/`: pytest tests. `tests/fixtures/`: small sample files they use.
+- `data/`: raw, interim (including `data/interim/api_cache/`), and processed data. Never committed.
 - All paths and the model name come from `config.yaml`. Don't hardcode either.
 
 ## Python style
@@ -94,3 +95,4 @@ When a task involves a real design choice (a library, schema, taxonomy, prompt a
 - For changes touching more than one module, outline the plan first and wait for approval.
 - Read existing code in a module before changing it.
 - Keep commits small, with messages saying what changed and why.
+- `README.md` restates the project's data, API, agent, and eval rules for readers. When one of those rules changes here, update `README.md` in the same change.
