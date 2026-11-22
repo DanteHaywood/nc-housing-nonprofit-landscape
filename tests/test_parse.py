@@ -8,11 +8,14 @@ from src.ingest.parse import (
     FILING_COLUMNS,
     PROGRAM_COLUMNS,
     REVENUE_LINE_COLUMNS,
+    SCHEDULE_O_COLUMNS,
     UnsupportedForm,
+    is_mission_or_program,
     normalize_ein,
     parse_amount,
     parse_filing,
     parse_filings,
+    reference_part,
     write_parquet,
 )
 
@@ -132,6 +135,26 @@ def test_990_revenue_lines() -> None:
     ]
 
 
+# Part I line 1 (ActivityOrMissionDesc) is parsed alongside the Part III mission.
+def test_990_activity_or_mission() -> None:
+    filing = parse_filing(FORM_990).filing
+    assert filing["activity_or_mission"].startswith(
+        "To be a coalition of diverse individuals and local organizations"
+    )
+
+
+# Schedule O: 20 notes in filing order. Governance (Part VI) and expense detail
+# (Part IX) aren't flagged; the line 4d program notes are.
+def test_990_schedule_o() -> None:
+    notes = parse_filing(FORM_990).schedule_o
+    assert [n["entry_number"] for n in notes] == list(range(1, 21))
+    assert [n["part"] for n in notes] == ["VI"] * 2 + ["IX"] * 10 + ["III"] * 8
+    assert [n["is_mission_or_program"] for n in notes] == [False] * 12 + [True] * 8
+    assert notes[0]["reference"] == "Part VI Line 11b"
+    assert notes[13]["explanation"] == "Chicken Coop"
+    assert all(n["ein"] == "474942066" and n["return_type"] == "990" for n in notes)
+
+
 # --- Real 990-EZ ------------------------------------------------------------
 
 
@@ -179,8 +202,18 @@ def test_990ez_missing_fields_are_none_and_logged(
     for column in blank:
         assert column in caplog.text
     # 990-only columns are None but not "missing" for a 990-EZ.
-    assert filing["government_grants"] is None
-    assert "government_grants" not in caplog.text
+    for column in ("government_grants", "activity_or_mission"):
+        assert filing[column] is None
+        assert column not in caplog.text
+
+
+# The 990-EZ's Schedule O repeats its Part III mission and programs in full.
+def test_990ez_schedule_o() -> None:
+    notes = parse_filing(FORM_990EZ).schedule_o
+    assert [n["part"] for n in notes] == ["I", "II", "II", "III", "III", "III", "III"]
+    assert [n["is_mission_or_program"] for n in notes] == [False] * 3 + [True] * 4
+    assert notes[3]["reference"] == "FORM 990-EZ, PART III"
+    assert notes[3]["explanation"].startswith("OUR MISSION IS TO CONNECT RESOURCES")
 
 
 # Three uniform program groups, no Part III line letters, no revenue lines.
@@ -213,6 +246,71 @@ def test_text_is_whitespace_normalized() -> None:
 )
 def test_parse_amount(text: str, expected: int | None) -> None:
     assert parse_amount(text) == expected
+
+
+# Schedule O references are free text; the part is read from the common forms,
+# including Arabic numerals and "Pt", and IX isn't mistaken for I.
+@pytest.mark.parametrize(
+    ("reference", "expected"),
+    [
+        ("FORM 990, PAGE 2, PART III, LINE 4D", "III"),
+        ("Part III Line 4c", "III"),
+        ("Pt VI, Line 11b", "VI"),
+        ("Pt. VI, Line 19", "VI"),
+        ("FORM 990, PART 1, LINE 1:", "I"),
+        ("Part IX Line 24e", "IX"),
+        ("FORM 990-EZ, PART II, LINE 24", "II"),
+        ("Other Expenses.1", None),
+        ("FORM 990 - ORGANIZATION'S MISSION", None),
+        ("PART 99", None),
+        (None, None),
+    ],
+)
+def test_reference_part(reference: str | None, expected: str | None) -> None:
+    assert reference_part(reference) == expected
+
+
+# Part III counts; with no part named, mission/program wording counts; a note
+# naming another part never counts, even if it says "program service".
+@pytest.mark.parametrize(
+    ("reference", "expected"),
+    [
+        ("Part III Line 4d", True),
+        ("FORM 990 - ORGANIZATION'S MISSION", True),
+        ("Program service accomplishments", True),
+        ("Part IX, Line 25 - program service expenses", False),
+        ("Pt VI, Line 11b", False),
+        ("Other Expenses.1", False),
+        (None, False),
+    ],
+)
+def test_is_mission_or_program(reference: str | None, expected: bool) -> None:
+    assert is_mission_or_program(reference, reference_part(reference)) is expected
+
+
+# A Schedule O note with a blank explanation and no reference still yields a
+# row with None in both, logged, and parsing carries on.
+def test_schedule_o_blank_note_is_none_and_logged(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    body = (
+        "<IRS990/><IRS990ScheduleO>"
+        "<SupplementalInformationDetail><ExplanationTxt> </ExplanationTxt>"
+        "</SupplementalInformationDetail>"
+        "<SupplementalInformationDetail>"
+        "<FormAndLineReferenceDesc>Part III, Line 1</FormAndLineReferenceDesc>"
+        "<ExplanationTxt>We build homes.</ExplanationTxt>"
+        "</SupplementalInformationDetail></IRS990ScheduleO>"
+    )
+    with caplog.at_level(logging.INFO, logger="src.ingest.parse"):
+        notes = parse_filing(write_xml(tmp_path, body)).schedule_o
+    assert notes[0]["reference"] is None
+    assert notes[0]["explanation"] is None
+    assert notes[0]["part"] is None
+    assert notes[0]["is_mission_or_program"] is False
+    assert notes[1]["explanation"] == "We build homes."
+    assert "schedule O 1 reference" in caplog.text
+    assert "schedule O 1 explanation" in caplog.text
 
 
 # EINs are zero-padded; non-digit EINs become None instead of raising.
@@ -279,6 +377,7 @@ def test_parse_filings_skips_and_counts(tmp_path: Path) -> None:
     assert result.filings["return_type"].tolist() == ["990", "990EZ"]
     assert len(result.programs) == 10
     assert len(result.revenue_lines) == 5
+    assert len(result.schedule_o) == 27
 
 
 # Tables have fixed columns; amounts are nullable Int64 and EINs stay strings.
@@ -287,6 +386,8 @@ def test_parse_filings_columns_and_dtypes() -> None:
     assert list(result.filings.columns) == FILING_COLUMNS
     assert list(result.programs.columns) == PROGRAM_COLUMNS
     assert list(result.revenue_lines.columns) == REVENUE_LINE_COLUMNS
+    assert list(result.schedule_o.columns) == SCHEDULE_O_COLUMNS
+    assert str(result.schedule_o["is_mission_or_program"].dtype) == "bool"
     assert str(result.filings["total_revenue"].dtype) == "Int64"
     assert str(result.programs["grant_amt"].dtype) == "Int64"
     assert result.filings["ein"].map(type).eq(str).all()

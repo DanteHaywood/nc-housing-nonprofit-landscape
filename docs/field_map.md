@@ -11,6 +11,7 @@ This is a selection of fields from the 990 and 990-EZ xml files that this projec
 
 ### 2. Mission & Program Service Descriptions
 * `IRS990/MissionDesc` — Part III primary exempt purpose/mission statement.
+* `IRS990/ActivityOrMissionDesc` — Part I, Line 1: "briefly describe the organization's mission or most significant activities". Present on every 990; a fallback when `MissionDesc` only says "See Schedule O". *(Added in D-013.)*
 * `IRS990/Desc` — Program Service Accomplishment #1 description (Part III, Line 4a).
 * `IRS990/ExpenseAmt` — Program Service Accomplishment #1 expenses.
 * `IRS990/RevenueAmt` — Program Service Accomplishment #1 revenue.
@@ -85,6 +86,16 @@ This is a selection of fields from the 990 and 990-EZ xml files that this projec
 * `IRS990EZ/NetAssetsOrFundBalancesGrp/EOYAmt` — Total net assets or fund balances at End of Year (Part II, Line 27, Col B; also mirrored at `IRS990EZ/NetAssetsOrFundBalancesEOYAmt`).
 * `IRS990EZ/Form990TotalAssetsGrp/BOYAmt` — Total assets at Beginning of Year (Part II, Line 25, Col A).
 * `IRS990EZ/Form990TotalAssetsGrp/EOYAmt` — Total assets at End of Year (Part II, Line 25, Col B).
+
+## Schedule O (990 and 990-EZ) — Supplemental Information
+
+*(Added in D-013.)* Schedule O sits beside the form, not inside it, and holds free-text notes that explain or continue lines on the main form. Filers use it when a line runs out of space, so a mission or program description of "See Schedule O" points here.
+
+* `IRS990ScheduleO/SupplementalInformationDetail` — Repeating node, one per note, in filing order.
+* `IRS990ScheduleO/SupplementalInformationDetail/FormAndLineReferenceDesc` — Which form line the note explains. **Free text typed by the filer**, with no fixed format: `FORM 990, PAGE 2, PART III, LINE 4D`, `Pt VI, Line 11b`, `FORM 990 - ORGANIZATION'S MISSION`, `Other Expenses.1`.
+* `IRS990ScheduleO/SupplementalInformationDetail/ExplanationTxt` — The note itself.
+
+Most notes are governance answers (Part VI) or expense detail (Part IX). Notes about the mission or programs are Part III, plus references that name no part but mention the mission or program services. On the 990-EZ, Part I is revenue and expenses, so a 990-EZ "Part I" note is never the mission; on the 990, Part I line 1 is.
 
 ### Key Schema Differences (990 vs. 990-EZ)
 * **No Government Grant Split:** Form 990-EZ aggregates government grants directly into `ContributionsGiftsGrantsEtcAmt` rather than exposing a standalone `GovernmentGrantsAmt` field.

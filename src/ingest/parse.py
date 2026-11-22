@@ -5,6 +5,8 @@ Each filing becomes:
 - one row in `programs` per program service accomplishment (Part III),
 - one row in `revenue_lines` per program service revenue line (990 Part VIII,
   line 2). The 990-EZ has no equivalent.
+- one row in `schedule_o` per Schedule O supplemental note, with a best-effort
+  form part and a mission/program flag taken from its free-text reference (D-013).
 
 Forms other than 990 and 990-EZ (in practice 990-PF) are skipped (D-012).
 A field missing from a filing becomes None and is logged. It never raises.
@@ -15,6 +17,7 @@ Run with `python -m src.ingest.parse` after `python -m src.ingest.extract`.
 """
 
 import logging
+import re
 from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field
@@ -51,6 +54,8 @@ RETURN_TYPE_PATH = "ReturnHeader/ReturnTypeCd"
 # except `mission`.
 FORM_FIELDS: dict[str, dict[str, str]] = {
     "mission": {FORM_990: "MissionDesc", FORM_990EZ: "PrimaryExemptPurposeTxt"},
+    # Part I line 1, "mission or most significant activities". 990 only (D-013).
+    "activity_or_mission": {FORM_990: "ActivityOrMissionDesc"},
     # Contributions and government grants
     "contributions_total": {
         FORM_990: "TotalContributionsAmt",
@@ -101,7 +106,7 @@ FORM_FIELDS: dict[str, dict[str, str]] = {
     "total_assets_boy": {FORM_990EZ: "Form990TotalAssetsGrp/BOYAmt"},
     "total_assets_eoy": {FORM_990EZ: "Form990TotalAssetsGrp/EOYAmt"},
 }
-TEXT_COLUMNS = frozenset({"mission"})
+TEXT_COLUMNS = frozenset({"mission", "activity_or_mission"})
 
 # Program fields: column -> {form: path relative to one program's element}.
 # On the 990, program 1 (line 4a) sits directly under the form root. Programs 2
@@ -121,6 +126,20 @@ PROGRAM_GROUPS_990 = [
 PROGRAM_GROUP_990EZ = "ProgramSrvcAccomplishmentGrp"
 REVENUE_LINE_GROUP = "ProgramServiceRevenueGrp"
 
+# Schedule O sits beside the form under ReturnData. Each note has a free-text
+# reference typed by the filer ("FORM 990, PAGE 2, PART III, LINE 4D",
+# "Pt VI, Line 11b", "FORM 990 - ORGANIZATION'S MISSION") and an explanation.
+SCHEDULE_O_ENTRIES = "ReturnData/IRS990ScheduleO/SupplementalInformationDetail"
+# "PART III", "Part 3", "Pt VI", "Pt. 6". Longest numeral first, so IX isn't read as I.
+PART_PATTERN = re.compile(
+    r"\b(?:PART|PT)\.?\s*(XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I|\d{1,2})\b", re.I
+)
+ROMAN_PARTS = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"]
+# Only used when the reference names no part.
+MISSION_OR_PROGRAM_PATTERN = re.compile(
+    r"MISSION|PROGRAM\s+SERVICE|ACCOMPLISHMENT|EXEMPT\s+PURPOSE", re.I
+)
+
 FILING_COLUMNS = ["object_id", "return_type", *HEADER_FIELDS, *FORM_FIELDS]
 PROGRAM_COLUMNS = [
     "object_id",
@@ -131,6 +150,16 @@ PROGRAM_COLUMNS = [
     *PROGRAM_FIELDS,
 ]
 REVENUE_LINE_COLUMNS = ["object_id", "ein", "line_number", "description", "amount"]
+SCHEDULE_O_COLUMNS = [
+    "object_id",
+    "ein",
+    "return_type",
+    "entry_number",
+    "reference",
+    "explanation",
+    "part",
+    "is_mission_or_program",
+]
 
 AMOUNT_COLUMNS = {
     "filings": [c for c in FORM_FIELDS if c not in TEXT_COLUMNS],
@@ -154,6 +183,7 @@ class ParsedFiling:
     filing: dict[str, Any]
     programs: list[dict[str, Any]] = field(default_factory=list)
     revenue_lines: list[dict[str, Any]] = field(default_factory=list)
+    schedule_o: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -163,6 +193,7 @@ class ParseResult:
     filings: pd.DataFrame
     programs: pd.DataFrame
     revenue_lines: pd.DataFrame
+    schedule_o: pd.DataFrame
     skipped: dict[str, int]  # return type -> count of files skipped
     failed: list[str]  # files that couldn't be parsed as XML
 
@@ -326,6 +357,65 @@ def _parse_revenue_lines(
     return rows
 
 
+def reference_part(reference: str | None) -> str | None:
+    """Return the form part a Schedule O reference names, as a Roman numeral.
+
+    `"FORM 990, PAGE 2, PART III, LINE 4D"` -> `"III"`, `"Pt VI, Line 11b"` ->
+    `"VI"`, `"FORM 990, PART 1, LINE 1:"` -> `"I"`. Returns None when no part
+    is named (`"Other Expenses.1"`) or the number is out of range.
+    """
+    if reference is None:
+        return None
+    match = PART_PATTERN.search(reference)
+    if match is None:
+        return None
+    part = match.group(1).upper()
+    if part.isdigit():
+        number = int(part)
+        return ROMAN_PARTS[number - 1] if 1 <= number <= len(ROMAN_PARTS) else None
+    return part
+
+
+def is_mission_or_program(reference: str | None, part: str | None) -> bool:
+    """True if a Schedule O note is about the mission or programs (Part III).
+
+    A note that names Part III counts. A note that names no part counts if its
+    reference mentions the mission, program services, accomplishments, or
+    exempt purpose (e.g. `"FORM 990 - ORGANIZATION'S MISSION"`). A note naming
+    another part doesn't count, even if it mentions "program service expenses".
+    """
+    if part is not None:
+        return part == "III"
+    return bool(reference and MISSION_OR_PROGRAM_PATTERN.search(reference))
+
+
+def _parse_schedule_o(
+    form: _Form, root: etree._Element, return_type: str, ein: str | None
+) -> list[dict[str, Any]]:
+    """Return one row per Schedule O supplemental note, in filing order."""
+    rows = []
+    for number, element in enumerate(form.findall(root, SCHEDULE_O_ENTRIES), start=1):
+        reference = form.text(
+            element, "FormAndLineReferenceDesc", f"schedule O {number} reference"
+        )
+        part = reference_part(reference)
+        rows.append(
+            {
+                "object_id": form.object_id,
+                "ein": ein,
+                "return_type": return_type,
+                "entry_number": number,
+                "reference": reference,
+                "explanation": form.text(
+                    element, "ExplanationTxt", f"schedule O {number} explanation"
+                ),
+                "part": part,
+                "is_mission_or_program": is_mission_or_program(reference, part),
+            }
+        )
+    return rows
+
+
 def parse_root(root: etree._Element, object_id: str) -> ParsedFiling:
     """Parse an already-loaded `<Return>` element.
 
@@ -375,6 +465,7 @@ def parse_root(root: etree._Element, object_id: str) -> ParsedFiling:
             if return_type == FORM_990
             else []
         ),
+        schedule_o=_parse_schedule_o(form, root, return_type, filing["ein"]),
     )
     if form.missing:
         logger.info(
@@ -406,12 +497,12 @@ def _frame(
 
 
 def parse_filings(paths: Iterable[Path]) -> ParseResult:
-    """Parse every file in `paths` into the three tables.
+    """Parse every file in `paths` into the four tables.
 
     Unsupported return types are counted in `skipped`. A file that isn't valid
     XML is logged and listed in `failed`. Neither stops the run.
     """
-    filings, programs, revenue_lines = [], [], []
+    filings, programs, revenue_lines, schedule_o = [], [], [], []
     skipped: Counter[str] = Counter()
     failed: list[str] = []
     for path in paths:
@@ -428,6 +519,7 @@ def parse_filings(paths: Iterable[Path]) -> ParseResult:
         filings.append(parsed.filing)
         programs.extend(parsed.programs)
         revenue_lines.extend(parsed.revenue_lines)
+        schedule_o.extend(parsed.schedule_o)
 
     return ParseResult(
         filings=_frame(
@@ -437,6 +529,7 @@ def parse_filings(paths: Iterable[Path]) -> ParseResult:
         revenue_lines=_frame(
             revenue_lines, REVENUE_LINE_COLUMNS, AMOUNT_COLUMNS["revenue_lines"]
         ),
+        schedule_o=_frame(schedule_o, SCHEDULE_O_COLUMNS, []),
         skipped=dict(skipped),
         failed=failed,
     )
@@ -470,7 +563,7 @@ def missing_counts(filings: pd.DataFrame) -> pd.DataFrame:
 
 
 def main() -> None:
-    """Parse all extracted XML, print a summary, and write the three tables."""
+    """Parse all extracted XML, print a summary, and write the four tables."""
     config = load_config()
     interim = Path(config["paths"]["interim"])
     log_path = interim / "parse.log"
@@ -496,12 +589,16 @@ def main() -> None:
     print(f"  failed to parse       {len(result.failed):>7,}")
     print(f"program rows            {len(result.programs):>7,}")
     print(f"revenue line rows       {len(result.revenue_lines):>7,}")
+    sched = result.schedule_o
+    print(f"schedule O rows         {len(sched):>7,}")
+    print(f"  mission or program    {int(sched['is_mission_or_program'].sum()):>7,}")
+    print(f"  no part identified    {int(sched['part'].isna().sum()):>7,}")
 
     counts = missing_counts(result.filings)
     print("\nMissing (None) by field, for fields each form has:")
     print(counts.loc[counts["missing"] > 0].to_string(index=False))
 
-    for name in ("filings", "programs", "revenue_lines"):
+    for name in ("filings", "programs", "revenue_lines", "schedule_o"):
         out = interim / f"{name}.parquet"
         write_parquet(getattr(result, name), out)
         print(f"Wrote {out}")

@@ -189,3 +189,28 @@ Changes to the field map: the 990-EZ salaries tag is `SalariesOtherCompEmplBnftA
 **Alternatives.** Filling missing amounts with 0 at parse time would hide the difference between "zero" and "not reported". Separate tables per form would make every downstream query handle two schemas. Parsing 990-PF with no field map would produce rows that are mostly None.
 
 **Consequences.** Analysis SQL must decide, per question, whether a NULL amount counts as 0. `tax_year` is the IRS `TaxYr`, the year the tax period began. For the 899 fiscal-year filers it is one less than the `TAX_PERIOD` end year. In the NC run, 1,979 filings parsed (1,486 990, 493 990-EZ) with 2,969 program rows and 2,317 revenue lines. None failed, and none had a malformed amount. 33 missions just point to Schedule O, which isn't parsed yet.
+
+## D-013: Schedule O and the Part I mission line
+
+**Status:** Proposed
+**Date:** 2026-11-22
+
+**Context.** 33 parsed missions mention Schedule O. 18 of them are only the pointer ("SEE SCHEDULE O"), so the classifier would get no mission text for those filings. 36 program descriptions mention it too, 10 as bare pointers. Schedule O is in the XML (`ReturnData/IRS990ScheduleO`) for all 1,486 990s and 448 of 493 990-EZs. It is a list of notes, each with a free-text `FormAndLineReferenceDesc` naming the form line it explains and an `ExplanationTxt`. Of 9,510 notes, 5,590 refer to Part VI (governance). The 990 also has `ActivityOrMissionDesc` (Part I line 1), which D-012 didn't parse.
+
+**Decision.** `src/ingest/parse.py` keeps what was filed and doesn't resolve pointers.
+- A `schedule_o` table gets one row per note, governance notes included: `reference` and `explanation` as filed (whitespace-normalized), plus two derived columns.
+  - `part` is the form part named in the reference, as a Roman numeral. A regex reads `PART III`, `Part 3`, `Pt VI`, and `Pt. 6`. Part numbers above XII, and references with no part, give None.
+  - `is_mission_or_program` is true when `part` is III. When the reference names no part, it is true if the reference mentions mission, program service, accomplishment, or exempt purpose. A reference naming any other part is never flagged, even if it says "program service expenses".
+- `filings` gets an `activity_or_mission` column from `ActivityOrMissionDesc`, 990 only.
+
+Choosing classifier text from these sources is left to `src/classify/`, with its own decision entry.
+
+**Alternatives.** Replacing `mission` at parse time would hide what the filer wrote and bury a judgment call in ingest. Keeping only Part III notes would save little space (the full table is 9.5k rows) and drop text the Stage 2 agent might use. Matching keywords on every reference would flag Part IX expense notes that mention "program service expenses".
+
+**Consequences.** In the NC run, 456 notes in 338 filings are flagged mission or program, and 1,024 notes name no part. Most of those are generated labels like `Other Expenses.1`, but 104 read `FORM 990 - ORGANIZATION'S MISSION` and are flagged. Of the 18 bare-pointer missions:
+- 10 have a flagged note.
+- 3 (990s) have a Schedule O note for Part I line 1.
+- 2 (990s) can use `activity_or_mission`.
+- 3 (990-EZs) have no mission text anywhere in the filing.
+
+The future selection rule must only treat Part I as the mission on a 990: on the 990-EZ, Part I is revenue and expenses. `activity_or_mission` is filled on all 1,486 990s.
