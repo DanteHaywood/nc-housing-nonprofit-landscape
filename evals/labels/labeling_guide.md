@@ -1,9 +1,9 @@
 # Labeling guide
 
-**Status: draft.** It follows the taxonomy in D-008, which is itself *Proposed*
-and due for review after the first 25 labels. Questions this guide leaves open
-are listed at the end. Bring them to that review rather than settling them
-mid-labeling.
+**Status: in use.** It follows the taxonomy in D-008, which was reviewed after
+the 40 dev labels and accepted unchanged (D-017). The labels are strict on
+primary purpose. Record housing-relevant organizations that fall outside them
+with a `TAXONOMY:` note; broader coverage is a decision for the client.
 
 ## What you're labeling
 
@@ -115,18 +115,19 @@ with one of these when it applies:
 - `UNSURE:` you're torn between labels. Name the runner-up, e.g. `UNSURE:
   supportive_housing vs emergency_shelter. 90-day stays with case managers.`
 - `TAXONOMY:` no label really fits, or two would have to be equally primary.
-  These feed the D-008 review.
+  These record what the strict labels miss (D-017).
 - `TEXT:` the filing text is too thin to label with confidence (very short
   mission, no programs).
 
 Otherwise, keep notes to one or two sentences of evidence: what in the text
 decided it.
 
-## Open questions for the D-008 review (after 25 labels)
+## Open questions (D-008 review: settled by D-017)
 
-These come up often in NC housing filings, and the taxonomy doesn't settle
-them yet. Label them by the closest rule above, add `TAXONOMY:` to the note,
-and count how often they appear.
+These come up often in NC housing filings. D-017 keeps the strict labels, so
+label each by the closest rule above, add `TAXONOMY:` to the note, and count
+how often they appear. The counts feed the client discussion on broader
+coverage.
 
 1. **Senior living and continuing-care retirement communities** (often NTEE
    P75). Are they `supportive_housing` (housing plus services for seniors),

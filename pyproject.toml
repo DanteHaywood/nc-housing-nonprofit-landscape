@@ -12,6 +12,7 @@ dependencies = [
     "duckdb",
     "lxml",
     "pandas",
+    "python-dotenv",
     "pyyaml",
 ]
 

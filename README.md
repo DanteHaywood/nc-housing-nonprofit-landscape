@@ -35,7 +35,7 @@ Claude reads each organization's mission and program service descriptions from i
 | `supportive_housing` | Housing combined with services (disability, recovery, youth, seniors) |
 | `not_housing` | Housing is not a primary purpose |
 
-*The taxonomy is a first draft and may change after labeling starts. Changes will be logged in `docs/decisions.md`.*
+*The taxonomy was reviewed after the 40 dev labels and kept unchanged (D-017). It is strict on primary purpose: an organization gets a housing label only if housing is its main work, judged by program spending and then mission. Organizations doing real housing work outside their primary purpose, such as advocacy groups or multi-service agencies, are labeled `not_housing`. The 990 text also limits what any label can see. Widening the taxonomy is a tradeoff to discuss with whoever uses the results, and any change will be logged in `docs/decisions.md`.*
 
 **The eval.** A hand-labeled set of about 100 North Carolina organizations, sampled on purpose to include:
 - organizations NTEE codes as housing (L),
@@ -49,7 +49,7 @@ Claude's labels are compared to the hand labels, and so are the NTEE codes. **Th
 Hand labels are never changed to match model output. Any label change gets an entry in `docs/decisions.md` saying why.
 
 **How the classifier stays reproducible**
-- **Versioned prompts.** Prompts live in `src/classify/prompts/` as numbered files (`v001.md`, `v002.md`, ...). Changing a prompt means adding a new version, never editing an old one.
+- **Versioned prompts.** Prompts live in `src/classify/prompts/` as numbered files (`v001.md`, `v002.md`, ...). Changing a prompt means adding a new version, never editing an old one. Each version writes out the label definitions as XML categories, following Anthropic's [classification cookbook](https://platform.claude.com/cookbook/capabilities-classification-guide), so a cached response always maps to the definitions it was given (D-016).
 - **Cached responses.** Every API response is saved as JSONL in `data/interim/api_cache/`, keyed by EIN, prompt version, and model. Reruns read from the cache unless `--refresh` is passed, so an eval can be reproduced without paying for the same calls twice.
 - **Validated output.** Claude returns one label from the fixed taxonomy plus a short reason. Anything outside the taxonomy is logged as an error, not coerced into a label.
 
@@ -145,7 +145,9 @@ pip install -e ".[dev]"
 # default folder. A few IRS zips use Deflate64, which Python can't decompress
 # (D-011).
 
-# 2. Set your API key
+# 2. Set your API key: copy .env.example to .env (gitignored) and fill it in,
+#    or set it in the shell, which wins over .env
+cp .env.example .env
 export ANTHROPIC_API_KEY=...              # bash / zsh
 $env:ANTHROPIC_API_KEY = "..."            # PowerShell
 
@@ -165,7 +167,7 @@ python -m src.classify.run                # add --refresh to bypass the API cach
 python evals/classify_eval.py
 ```
 
-The API key is read from the environment only. It is never written to code, config, logs, or output.
+The API key is read from the environment, which the command-line scripts first fill from a gitignored `.env` file if one exists. It is never written to code, config, logs, or output.
 
 ---
 

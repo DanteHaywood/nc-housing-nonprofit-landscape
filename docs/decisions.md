@@ -120,7 +120,7 @@ Design decisions for this project, one entry per decision, newest at the bottom.
 
 ## D-008: Housing taxonomy, first draft
 
-**Status:** Proposed
+**Status:** Accepted (reviewed in D-017)
 **Date:** 2026-11-20
 
 **Context.** The classifier needs a fixed set of labels that is finer than NTEE major group L but small enough to hand-label consistently.
@@ -278,3 +278,51 @@ Two things still need work:
 - **Base rate:** the random group is mostly non-housing (education, religion, recreation, and 8 with no NTEE code). Results should be reported by group, not only overall.
 - **Proportions:** the sample isn't proportional to the state's population of nonprofits, so its overall accuracy isn't a statewide estimate.
 - **Rebuilds:** the build now depends on `evals/labels/sample.csv`. Because the file is frozen, rebuilds stay reproducible.
+
+## D-016: Classifier prompt format
+
+**Status:** Proposed
+**Date:** 2026-11-22
+
+**Context.** Stage 1 needs its first prompt. The prompt has to define the six D-008 labels well enough that Claude applies the same boundaries as the labeling guide, return a label the code can validate, and give a short reason for the error analysis. Prompts are cached by version (CLAUDE.md), so the label definitions have to be versioned along with the prompt text.
+
+**Decision.** Prompts follow the pattern in Anthropic's classification cookbook (platform.claude.com/cookbook/capabilities-classification-guide). That guide is the reference for classification work in this project.
+- **Categories:** each label is a `<category>` with a `<label>` and a `<content>` inside `<categories>`. Each `<content>` is the labeling guide's definition, includes, and excludes, written as prose, with the decided edge cases folded in (Habitat affiliates, group homes, homeowners' associations, emergency funds).
+- **Embedded in each version:** the categories are written into each prompt file, not kept in a separate file. Changing a definition means a new prompt version, so the cache key (EIN, prompt version, model) always identifies the definitions used.
+- **Input:** the organization's name, mission, Part I activity line, programs with expenses, and mission/program Schedule O notes, each in its own tag. These are the same fields as on the hand-labeling sheet (D-015), so Claude and the labelers work from the same evidence.
+- **Rules:** the guide's decision rules come after the input: one primary label, follow the money, housing must be primary, read Schedule O when the mission is a bare pointer (D-013), and use only the given text.
+- **Output by tool use:** the call offers one strict tool, `record_label`, and forces it (`tool_choice` names it; Claude Haiku 5.5 allows forced tool use). Its schema is `reason` (a string) then `label` (an enum of `config.yaml: housing_labels`), both required, no other fields. The prompt asks for the reason first, so the model states its evidence before choosing. The parser still checks the label against the taxonomy, a missing reason, a missing tool call, and refusals; anything that fails is logged with a status, never coerced.
+- **v001 is zero-shot.** Retrieved examples and a longer scratchpad (the cookbook's RAG and chain-of-thought variants) are left for later versions, each scored on dev against v001. `temperature` is not set; Haiku 5.5 doesn't accept it. A forced tool call on Haiku 5.5 skips thinking, so the reason field is the only reasoning step.
+
+**Alternatives.**
+- A separate categories file shared by prompt versions: one source for the definitions, but a definition change without a new prompt version would silently mix definitions under one cache key.
+- Few-shot examples from the dev labels: prompt work is scored on dev, so its own examples would inflate the score. Examples have to come from outside the labeled sample.
+- The cookbook's tag output (`<category>` with a `</category>` stop sequence): it follows the guide exactly, but the label is free text that has to be parsed. A strict tool schema with an enum guarantees well-formed output, and CLAUDE.md asks for structured output.
+- Structured outputs (`output_config.format`): would also work; tool use was asked for and keeps the label and reason in one typed block.
+- `tool_choice: auto` so the model can think first: no guarantee of a tool call, and thinking costs more for a six-way label.
+
+**Consequences.** The prompt and the labeling guide now state the same definitions twice. When the D-008 review changes a label, both need updating: the guide edited, and the prompt as a new version. The reason text gives the error analysis something to read. The scores from v001 are the baseline that later versions have to beat.
+
+## D-017: Taxonomy review after the dev labels
+
+**Status:** Accepted
+**Date:** 2026-11-23
+
+**Context.** D-008 called for a review of the taxonomy after the first 25 hand labels. All 40 dev organizations are now labeled under the labeling guide's rules. The review asked two questions: do the six labels and their definitions hold up, and what does a strict primary-purpose taxonomy leave out?
+
+**Decision.** Keep the six D-008 labels and their definitions unchanged, and accept D-008.
+- **The labels hold up.** Under the guide's strict rules, every dev organization fell into one of the six labels, `not_housing` included. No definition needed changing.
+- **They are strict by design.** A housing label goes only to an organization whose primary purpose, by program spending and then mission, is one of the five housing categories. That is how the labels should be explained: precise about organizations whose main work is housing, and blind to organizations doing real housing work that isn't their primary purpose.
+- **Widening the taxonomy is a client decision, not a labeling one.** For a foundation or funder trying to understand housing in an area, the organizations a strict taxonomy misses may be worth knowing about. Whether to catch them, at the cost of a less precise label set, depends on the client's goals. It should be discussed with the client as a tradeoff, not settled here.
+
+**Alternatives.**
+- A broader label, or a `housing_related` flag, for organizations with real housing impact outside their primary purpose. Housing advocacy came up while labeling (coalitions, research, convening, promoting development). Deferred until a client says what they need; adding it now would change the hand labels' meaning after 40 are done.
+- Multi-label classification (deferred in D-008). It would capture organizations doing housing alongside other work, but it is harder to label and evaluate. Still deferred, for the same reason.
+
+**Consequences.**
+- The labels can miss organizations that matter to housing in a place, for two reasons:
+  - Nonprofits often serve the needs in front of them rather than their stated mission. Rule 2 (follow the money) catches some of this, but only what the filing reports.
+  - The 990 data is imperfect and depends entirely on what each filer wrote. Thin or missing mission and program text limits both the hand labels and Claude's.
+- Results should be reported as accuracy on this strict definition, not as a full count of organizations working on housing. Stage 2 briefs should say the same, next to the headquarters-address caveat (D-006).
+- `TAXONOMY:` notes in the labeling sheets remain the place to record housing-relevant organizations that fall outside the labels, so the client discussion can start from real examples.
+- The labeling guide's open questions are settled the same way: each is labeled by the closest strict rule, and broader coverage is part of the client discussion.

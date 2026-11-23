@@ -18,3 +18,8 @@ label_sample:
 # NTEE codes adjacent to housing (group L is always included). Matched on the
 # first 3 characters, so P73Z and S200 match P73 and S20. See D-009.
 ntee_adjacent: [P60, P70, P73, P75, P85, S20, S21, S22, S30, S31]
+# The six D-008 labels. The classifier's tool schema allows only these, and any
+# other label returned is logged as an error (D-016).
+housing_labels: ["emergency_shelter", "affordable_housing_development", "homeownership", "rental_assistance", "supportive_housing", "not_housing"]
+# Seed for the random-label baseline (src/classify/classifier.py: classify_random).
+random_baseline_seed: 20261123

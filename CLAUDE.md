@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Classifies North Carolina housing nonprofits from public IRS Form 990 data using the Claude API, and evaluates the classifier against hand labels and the IRS's own NTEE codes (Stage 1). A read-only SQL agent then writes landscape briefs from the cleaned data (Stage 2). This is a portfolio project, so code clarity and honest results matter more than features. Background and data sources are in `README.md`.
 
-**Status:** ingest has started. `src/ingest/bmf.py` loads the state BMF and filters candidate organizations (tested in `tests/test_bmf.py`). `src/ingest/manifest.py` joins the candidates to the yearly index CSVs, dedupes the filings, and writes `data/interim/manifest.parquet` (tested in `tests/test_manifest.py`). `src/ingest/extract.py` extracts only the manifest's XML to `data/interim/xml/`, using 7-Zip for Deflate64 zips (tested in `tests/test_extract.py`). `src/ingest/parse.py` parses 990 and 990-EZ XML per `docs/field_map.md` into `filings`, `programs`, `revenue_lines`, and `schedule_o` parquet tables in `data/interim/` (tested in `tests/test_parse.py`). `src/ingest/build.py` runs all four stages and loads the `ingest` schema of the DuckDB database (`src/ingest/schema.sql`, `docs/schema.md`, D-014), and `src/ingest/quality.py` prints the funnel and missing-field shares (tested in `tests/test_build.py` and `tests/test_quality.py`). `evals/make_sample.py` has drawn the labeled sample and written blank sheets to `evals/labels/` (D-015), and the build ingests the sample's EINs. Open items: Cape Fear filtering needs a ZIP-to-county crosswalk (D-014). Open item for `src/classify/`: missions that only say "See Schedule O" need a rule to pick replacement text from `schedule_o` and `activity_or_mission` (D-013). The rest of `src/` is empty, and the layout in `README.md` is the target. The run commands below won't work until their modules exist. `evals/agent_eval.py` and `docs/error_analysis.md` are planned, not written.
+**Status:** ingest has started. `src/ingest/bmf.py` loads the state BMF and filters candidate organizations (tested in `tests/test_bmf.py`). `src/ingest/manifest.py` joins the candidates to the yearly index CSVs, dedupes the filings, and writes `data/interim/manifest.parquet` (tested in `tests/test_manifest.py`). `src/ingest/extract.py` extracts only the manifest's XML to `data/interim/xml/`, using 7-Zip for Deflate64 zips (tested in `tests/test_extract.py`). `src/ingest/parse.py` parses 990 and 990-EZ XML per `docs/field_map.md` into `filings`, `programs`, `revenue_lines`, and `schedule_o` parquet tables in `data/interim/` (tested in `tests/test_parse.py`). `src/ingest/build.py` runs all four stages and loads the `ingest` schema of the DuckDB database (`src/ingest/schema.sql`, `docs/schema.md`, D-014), and `src/ingest/quality.py` prints the funnel and missing-field shares (tested in `tests/test_build.py` and `tests/test_quality.py`). `evals/make_sample.py` has drawn the labeled sample and written blank sheets to `evals/labels/` (D-015), and the build ingests the sample's EINs. Open items: Cape Fear filtering needs a ZIP-to-county crosswalk (D-014). Open item for `src/classify/`: missions that only say "See Schedule O" need a rule to pick replacement text from `schedule_o` and `activity_or_mission` (D-013). `src/classify/prompts/v001.md` is the first classifier prompt: the six labels as XML categories, in the format of Anthropic's classification cookbook (D-016). The rest of `src/classify/` and `src/agent/` is not written yet, and the layout in `README.md` is the target. The run commands below won't work until their modules exist. `evals/agent_eval.py` and `docs/error_analysis.md` are planned, not written.
 
 ## Commands
 
@@ -23,7 +23,7 @@ python evals/classify_eval.py      # Stage 1 eval
 ```
 
 A hook in `.claude/settings.json` runs Ruff on every Python file you edit. Fix any lint errors it reports before moving on. Run `pytest` before calling a task done.
-Development is on Windows: in PowerShell, set the key with `$env:ANTHROPIC_API_KEY = "..."`, not `export`.
+Development is on Windows. The key goes in `.env` at the repo root (gitignored; template in `.env.example`), or in PowerShell with `$env:ANTHROPIC_API_KEY = "..."`, not `export`. A shell value wins over `.env`.
 
 ## Pipeline
 
@@ -35,12 +35,12 @@ The `config.yaml` keys are `model`, `paths.{raw,interim,processed,labels}`, `sta
 
 ## Taxonomy
 
-There is one primary label per organization: `emergency_shelter`, `affordable_housing_development`, `homeownership`, `rental_assistance`, `supportive_housing`, `not_housing`. This is still a *Proposed* first draft (D-008), due for review after the first 25 hand labels. Any change goes through the decision log.
+There is one primary label per organization: `emergency_shelter`, `affordable_housing_development`, `homeownership`, `rental_assistance`, `supportive_housing`, `not_housing`. D-008 was reviewed after the 40 dev labels and accepted unchanged (D-017). The labels are strict on primary purpose and can miss organizations doing real housing work outside it; widening them is a tradeoff to settle with the client. Any change goes through the decision log.
 
 ## Layout
 
 - `src/ingest/`: BMF filter → index join and dedupe → selective unzip → XML parse → DuckDB (`build.py`, `schema.sql`), plus `quality.py`. New data-loading code goes here.
-- `src/classify/`: prompts, API calls, label output. Prompts live in `src/classify/prompts/` as versioned files (`v001.md`, `v002.md`, ...).
+- `src/classify/`: prompts, API calls, label output. Prompts live in `src/classify/prompts/` as versioned files (`v001.md`, `v002.md`, ...). Each version embeds its own `<categories>` block and follows the cookbook format (D-016).
 - `src/agent/`: SQL tool, agent loop, brief writer.
 - `evals/`: eval scripts, `evals/labels/` (hand labels and labeling guide), and `evals/results/` (saved eval output, the only source for numbers in `README.md`).
 - `docs/decisions.md`: decision log. `docs/schema.md`: database tables and keys. `docs/field_map.md`: XML paths parsed. `docs/error_analysis.md`: what the model got wrong.
@@ -67,7 +67,7 @@ There is one primary label per organization: `emergency_shelter`, `affordable_ho
 
 ## Claude API rules
 
-- Read `ANTHROPIC_API_KEY` from the environment. Never write keys to code, config, logs, or output.
+- Read `ANTHROPIC_API_KEY` from the environment. CLI entry points load `.env` into it first with `src/config.py: load_env()`; library code never reads the file. Never write keys to code, config, logs, or output, and never commit `.env`.
 - Cache every API response to `data/interim/api_cache/` as JSONL, keyed by EIN, prompt version, and model. Reruns read from cache unless `--refresh` is passed. This keeps evals reproducible and avoids paying twice.
 - Changing a prompt means a new prompt version file, never an edit to an existing one.
 - Ask for structured output (one label from the fixed taxonomy plus a short reason). Validate it; anything outside the taxonomy is logged as an error, not coerced.
