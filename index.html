@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NC Housing Nonprofit Landscape: Claude and IRS Form 990 data</title>
+<meta name="description" content="A technical prototype by Danté Haywood: Claude reads IRS Form 990 filings to classify North Carolina housing nonprofits, evaluated against hand labels and IRS NTEE codes.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,400;0,500;0,700;0,850;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #EDF1EE;
+    --ink: #13323A;
+    --ink-soft: #4A6168;
+    --rule: #C4CFCA;
+    --window-off: #CBD5D0;
+    --window-on: #F0AE2E;
+    --facade: #1E4650;
+    --link: #0F5E6E;
+    --measure: 66ch;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0E1D22;
+      --ink: #E4ECE8;
+      --ink-soft: #9DB2B0;
+      --rule: #2A3F45;
+      --window-off: #24393F;
+      --window-on: #F5B941;
+      --facade: #17303A;
+      --link: #7FCBD6;
+    }
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Public Sans", system-ui, sans-serif;
+    font-size: 1.0625rem;
+    line-height: 1.6;
+    font-feature-settings: "tnum" 0;
+  }
+  a { color: var(--link); text-underline-offset: 0.18em; text-decoration-thickness: 1px; }
+  a:hover { text-decoration-thickness: 2px; }
+  a:focus-visible, .button:focus-visible {
+    outline: 3px solid var(--window-on);
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+
+  .wrap { max-width: 72rem; margin: 0 auto; padding: 0 1.5rem; }
+  .prose { max-width: var(--measure); }
+
+  /* Top bar */
+  .top {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: 1rem; padding: 1.25rem 0; font-size: 0.9375rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .top strong { font-weight: 700; }
+  .top a { font-weight: 500; }
+
+  /* Hero */
+  .hero { padding: 4rem 0 3.5rem; }
+  .hero h1 {
+    font-weight: 850;
+    font-size: clamp(2.2rem, 5.2vw, 4rem);
+    line-height: 1.04;
+    letter-spacing: -0.025em;
+    margin: 0 0 1.25rem;
+    max-width: 18ch;
+  }
+  .lede { font-size: 1.25rem; line-height: 1.5; color: var(--ink-soft); max-width: 52ch; margin: 0; }
+
+  .blocks {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem;
+    margin-top: 3.25rem;
+    align-items: end;
+  }
+  .block figcaption { margin-top: 1rem; }
+  .block .who { font-weight: 700; font-size: 1.125rem; display: block; }
+  .block .score { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+  .facade {
+    background: var(--facade);
+    padding: 1rem;
+    border-radius: 4px 4px 0 0;
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 0.5rem;
+  }
+  .win {
+    aspect-ratio: 3 / 4;
+    background: var(--window-off);
+    border-radius: 1px;
+    transition: background-color 0.25s ease, box-shadow 0.25s ease;
+  }
+  @media (prefers-color-scheme: light) {
+    .win { background: #2C5762; }
+  }
+  .win.on { background: var(--window-on); box-shadow: 0 0 10px rgba(240, 174, 46, 0.45); }
+  .legend {
+    margin-top: 1.5rem; font-size: 0.9375rem; color: var(--ink-soft);
+    display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap;
+  }
+  .legend .key { width: 0.7rem; height: 0.95rem; display: inline-block; border-radius: 1px; }
+  .legend .key.on { background: var(--window-on); }
+  .legend .key.off { background: #2C5762; }
+  @media (prefers-color-scheme: dark) { .legend .key.off, .win { background: var(--window-off); } .win.on { background: var(--window-on); } }
+
+  .actions { margin-top: 2.5rem; display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+  .button {
+    display: inline-block; padding: 0.8rem 1.25rem; font-weight: 700;
+    background: var(--ink); color: var(--paper); text-decoration: none; border-radius: 3px;
+  }
+  .button:hover { background: var(--link); }
+
+  /* Sections */
+  section { padding: 3.5rem 0; border-top: 1px solid var(--rule); }
+  h2 {
+    font-weight: 850; font-size: clamp(1.6rem, 3vw, 2.1rem);
+    line-height: 1.15; letter-spacing: -0.015em; margin: 0 0 1.25rem; max-width: 26ch;
+  }
+  h3 { font-weight: 700; font-size: 1.125rem; margin: 0 0 0.5rem; }
+  p { margin: 0 0 1rem; }
+  ul { padding-left: 1.2rem; margin: 0 0 1rem; }
+  li { margin-bottom: 0.5rem; }
+  li::marker { color: var(--ink-soft); }
+
+  .split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2.5rem; }
+
+  /* Pipeline: a real sequence, so it is numbered */
+  .steps { list-style: none; padding: 0; margin: 1.5rem 0 0; counter-reset: step; display: grid; gap: 1.25rem; max-width: var(--measure); }
+  .steps li { counter-increment: step; display: grid; grid-template-columns: 2.25rem 1fr; gap: 0.75rem; margin: 0; }
+  .steps li::before {
+    content: counter(step); font-weight: 850; font-size: 1.25rem; line-height: 1.3;
+    color: var(--ink); font-variant-numeric: tabular-nums;
+  }
+  .steps p { margin: 0; }
+
+  .chart { margin: 2rem 0 0; }
+  .chart img { width: 100%; height: auto; display: block; border-radius: 3px; border: 1px solid var(--rule); background: #FBFBF9; }
+  .chart figcaption { font-size: 0.9375rem; color: var(--ink-soft); margin-top: 0.6rem; max-width: var(--measure); }
+
+  table { border-collapse: collapse; font-variant-numeric: tabular-nums; margin: 0.5rem 0 1.5rem; }
+  th, td { text-align: left; padding: 0.55rem 1.5rem 0.55rem 0; border-bottom: 1px solid var(--rule); }
+  th { font-weight: 700; }
+  td.num, th.num { text-align: right; }
+
+  .caveat { color: var(--ink-soft); }
+
+  .claims h3 { font-size: 1.25rem; }
+  .claims .isnt li { color: var(--ink); }
+
+  footer { padding: 3rem 0 4rem; border-top: 1px solid var(--rule); font-size: 0.9375rem; color: var(--ink-soft); }
+  footer p { max-width: var(--measure); }
+
+  @media (max-width: 760px) {
+    .top .sub { display: none; }
+    .blocks, .split { grid-template-columns: 1fr; }
+    .hero { padding-top: 2.5rem; }
+    .facade { gap: 0.4rem; padding: 0.75rem; }
+    th, td { padding-right: 0.9rem; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .win { transition: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <span><strong>Danté Haywood</strong><span class="sub">, technical prototype</span></span>
+    <a href="https://github.com/DanteHaywood/nc-housing-nonprofit-landscape">Code on GitHub</a>
+  </header>
+
+  <main>
+    <div class="hero">
+      <h1>Finding the housing nonprofits a funder should know about</h1>
+      <p class="lede">Claude reads the IRS Form 990 filings of North Carolina nonprofits and sorts them by the housing work they actually do. On a first set of 40 hand-labeled organizations, it beat the IRS's own subject codes.</p>
+
+      <div class="blocks" aria-label="Correct classifications out of 40 organizations">
+        <figure class="block" style="margin:0">
+          <div class="facade" data-correct="33" role="img" aria-label="Claude: 33 of 40 organizations classified correctly"></div>
+          <figcaption><span class="who">Claude</span><span class="score">33 of 40 correct (82.5%)</span></figcaption>
+        </figure>
+        <figure class="block" style="margin:0">
+          <div class="facade" data-correct="25" role="img" aria-label="IRS NTEE codes: 25 of 40 organizations classified correctly"></div>
+          <figcaption><span class="who">IRS NTEE codes</span><span class="score">25 of 40 correct (62.5%)</span></figcaption>
+        </figure>
+      </div>
+      <p class="legend"><span class="key on" aria-hidden="true"></span> Each window is one organization. Lit windows were classified correctly against my hand labels. Dev set, prompt v001.</p>
+
+      <div class="actions">
+        <a class="button" href="https://github.com/DanteHaywood/nc-housing-nonprofit-landscape">View the code and README</a>
+        <a href="#claims">What I'm claiming</a>
+      </div>
+    </div>
+
+    <section aria-labelledby="problem">
+      <div class="prose">
+        <h2 id="problem">Funders map their field from memory</h2>
+        <p>Foundations increasingly want system-wide strategies: funding a set of organizations that together address an issue like housing across a region. To do that, they need to know who is doing the work.</p>
+        <p>There's no standardized, complete list. So funders rely on who has applied before, who board members know, and who shows up at convenings. That picture misses the organizations with the fewest resources to engage with philanthropy, often the ones a system-wide strategy most needs to reach.</p>
+        <p>The public data to start filling the gap exists, since the IRS releases every e-filed Form 990. But the IRS's subject codes (NTEE) are coarse and often wrong, what an organization actually does is buried in free text, and the raw files are large zipped XML.</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="solution">
+      <div class="prose">
+        <h2 id="solution">Claude reads the filings</h2>
+        <p>Claude reads each organization's mission and program descriptions and assigns one of six labels: emergency shelter, affordable housing development, homeownership, rental assistance, supportive housing, or not housing. For a funder, that means finding the right organizations before an RFP is written, and seeing which kinds of work a portfolio is missing.</p>
+      </div>
+      <ol class="steps" aria-label="How the pipeline works">
+        <li><p><strong>Find candidates.</strong> Start from the IRS Business Master File for North Carolina and select organizations in housing and adjacent categories.</p></li>
+        <li><p><strong>Pull only the filings needed.</strong> Match them to the IRS index files, keep the latest filing per organization and year, and extract just those XML files from the zipped releases.</p></li>
+        <li><p><strong>Parse and load.</strong> Turn the XML into filing, program, and financial tables in DuckDB.</p></li>
+        <li><p><strong>Classify.</strong> Send each organization's mission and program text to Claude with a versioned prompt. Responses must be one label from the fixed taxonomy, and every response is cached so results can be reproduced.</p></li>
+        <li><p><strong>Evaluate.</strong> Score Claude and the NTEE codes against 100 organizations I labeled by hand, split into a dev set for prompt work and a test set scored once at the end.</p></li>
+      </ol>
+    </section>
+
+    <section aria-labelledby="results">
+      <h2 id="results">First results, on the dev set</h2>
+      <div class="prose">
+        <table>
+          <thead><tr><th></th><th class="num">Correct</th><th class="num">Avg. precision</th><th class="num">Avg. recall</th></tr></thead>
+          <tbody>
+            <tr><th scope="row">Claude</th><td class="num">33 of 40</td><td class="num">0.77</td><td class="num">0.82</td></tr>
+            <tr><th scope="row">NTEE codes</th><td class="num">25 of 40</td><td class="num">0.31</td><td class="num">0.29</td></tr>
+          </tbody>
+        </table>
+        <ul>
+          <li><strong>NTEE codes can't tell types of housing work apart.</strong> They scored zero on homeownership, rental assistance, and supportive housing, the distinctions a funder needs.</li>
+          <li><strong>Claude's errors cluster around supportive housing,</strong> the line between housing with services and housing alone. That's where the next prompt version will focus.</li>
+          <li><strong>Claude rarely confuses housing with non-housing:</strong> 20 of 21 non-housing organizations were labeled correctly.</li>
+        </ul>
+        <p class="caveat">These are early numbers. The dev set is small (some labels have one organization), it guides prompt work so it will flatter later versions, and I'm the only labeler. The 60-organization test set will be scored once, with the final prompt.</p>
+      </div>
+
+      <figure class="chart">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="docs/images/confusion_dev_v001_dark.png">
+          <img src="docs/images/confusion_dev_v001_light.png" alt="Confusion matrices for 40 hand-labeled organizations. Claude (claude-haiku-5-5, prompt v001) labels 33 of 40 correctly; IRS NTEE codes mapped onto the same taxonomy get 25 of 40. Claude's errors cluster around supportive housing.">
+        </picture>
+        <figcaption>Where each method put each organization. Rows are my hand labels; dashed cells are correct.</figcaption>
+      </figure>
+      <figure class="chart">
+        <picture>
+          <source media="(prefers-color-scheme: dark)" srcset="docs/images/precision_recall_dev_v001_dark.png">
+          <img src="docs/images/precision_recall_dev_v001_light.png" alt="Precision and recall by label. Averaged over the five labels present, Claude's precision is 0.77 and recall 0.82; NTEE's are 0.31 and 0.29. NTEE scores zero on homeownership, rental assistance, and supportive housing.">
+        </picture>
+        <figcaption>Precision and recall by label. Source: <a href="https://github.com/DanteHaywood/nc-housing-nonprofit-landscape/blob/main/evals/results/classify_dev__v001__claude-haiku-5-5.json">saved eval output</a>.</figcaption>
+      </figure>
+    </section>
+
+    <section id="claims" aria-labelledby="claims-h">
+      <h2 id="claims-h">What I'm claiming, and what I'm not</h2>
+      <div class="split claims">
+        <div>
+          <h3>This project is</h3>
+          <ul>
+            <li>A technical prototype of an applied AI use case for philanthropy and nonprofits.</li>
+            <li>A demonstration of LLM engineering: a fixed taxonomy with validated output, versioned prompts, cached and reproducible API calls, a hand-labeled eval with a dev/test split, a baseline to beat, and error analysis that drives prompt changes.</li>
+            <li>A real-world problem from a sector I work in, scoped from a funder's question to a measurable result.</li>
+            <li>A build with Claude Code, kept consistent by project rules, hooks, tests, and a <a href="https://github.com/DanteHaywood/nc-housing-nonprofit-landscape/blob/main/docs/decisions.md">decision log</a>.</li>
+          </ul>
+        </div>
+        <div class="isnt">
+          <h3>This project isn't</h3>
+          <ul>
+            <li>A demonstration of hand-written Python. Claude Code wrote most of the code under my direction. I worked in Python with IRS data, including Form 990 filings, at Deloitte; my work since has been mostly in R. I read and reviewed the code here.</li>
+            <li>A finished client-facing product. There's no interface yet, the eval set is small, and results haven't been reviewed with funders.</li>
+            <li>A complete census. The smallest nonprofits file the 990-N postcard, which has no mission text, so some of the least-resourced organizations are still invisible here.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="prose" style="margin-top:1.5rem">
+        <h3>What I did</h3>
+        <p>Framed the problem from my work with funders and nonprofits; designed the taxonomy, the labeling guide, and the eval; hand-labeled 100 organizations blind to their NTEE codes; made and logged the design decisions; and directed and reviewed the build.</p>
+      </div>
+    </section>
+
+    <section aria-labelledby="next">
+      <div class="prose">
+        <h2 id="next">Next: a landscape agent</h2>
+        <p>Stage 2 gives Claude a read-only SQL tool over the cleaned data, so a program officer can ask, for example, which organizations in the Cape Fear region provide supportive housing and how their revenue has changed. All arithmetic happens in SQL, and an automated check confirms every number in a brief came from a query the agent actually ran.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <p>Built by Danté Haywood, Director of Data Science at Cape Fear Collective in Wilmington, NC. Built independently on personal time with public data; not a Cape Fear Collective project. Data: <a href="https://www.irs.gov/charities-non-profits/form-990-series-downloads">IRS Form 990 series downloads</a> and the <a href="https://www.irs.gov/charities-non-profits/exempt-organizations-business-master-file-extract-eo-bmf">IRS Exempt Organizations Business Master File</a>.</p>
+    <p><a href="https://github.com/DanteHaywood/nc-housing-nonprofit-landscape">github.com/DanteHaywood/nc-housing-nonprofit-landscape</a></p>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var facades = document.querySelectorAll(".facade");
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    facades.forEach(function (f) {
+      var correct = parseInt(f.getAttribute("data-correct"), 10);
+      var wins = [];
+      for (var i = 0; i < 40; i++) {
+        var w = document.createElement("span");
+        w.className = "win";
+        f.appendChild(w);
+        wins.push(w);
+      }
+      // Light windows in a fixed scattered order so lit and dark mix like a real facade.
+      var order = wins.map(function (_, i) { return i; })
+        .sort(function (a, b) { return ((a * 17) % 41) - ((b * 17) % 41); })
+        .slice(0, correct);
+      order.forEach(function (idx, n) {
+        if (reduce) { wins[idx].classList.add("on"); return; }
+        setTimeout(function () { wins[idx].classList.add("on"); }, 400 + n * 45);
+      });
+    });
+  })();
+</script>
+</body>
+</html>
