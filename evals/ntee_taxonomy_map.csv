@@ -1,0 +1,20 @@
+ntee_prefix,label,why
+L20,affordable_housing_development,"Housing development, construction and management."
+L21,affordable_housing_development,Low-income and subsidized rental housing.
+L22,affordable_housing_development,"Senior citizens' housing, mostly subsidized (guide open question 1)."
+L23,supportive_housing,Independent housing for people with disabilities.
+L25,affordable_housing_development,Housing rehabilitation (guide: preservation and major rehab).
+L30,rental_assistance,Housing search assistance.
+L4,emergency_shelter,Temporary housing (L40) and homeless shelters (L41).
+L50,not_housing,Housing owners' and renters' organizations (guide: homeowners' associations).
+L80,homeownership,"Housing support, not elsewhere classified. Ambiguous: could be any housing label."
+L81,homeownership,Home improvement and repairs (guide: owner-occupied repair).
+L82,rental_assistance,Housing expense reduction support.
+L,unmapped,"Other group L codes (support, advocacy, N.E.C.): NTEE says housing but not which kind."
+P60,not_housing,Emergency assistance (guide: emergency funds that sometimes pay rent).
+P70,supportive_housing,"Residential care and adult day programs. Ambiguous: day programs are not housing."
+P73,supportive_housing,Group homes.
+P75,supportive_housing,Senior continuing care communities (guide open question 1).
+P85,emergency_shelter,"Homeless services and centers. Ambiguous: day centers have no beds."
+S2,not_housing,Community and neighborhood development.
+S3,not_housing,Economic development.

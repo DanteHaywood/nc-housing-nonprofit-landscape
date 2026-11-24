@@ -326,3 +326,35 @@ Two things still need work:
 - Results should be reported as accuracy on this strict definition, not as a full count of organizations working on housing. Stage 2 briefs should say the same, next to the headquarters-address caveat (D-006).
 - `TAXONOMY:` notes in the labeling sheets remain the place to record housing-relevant organizations that fall outside the labels, so the client discussion can start from real examples.
 - The labeling guide's open questions are settled the same way: each is labeled by the closest strict rule, and broader coverage is part of the client discussion.
+
+## D-018: Mapping NTEE codes onto the taxonomy
+
+**Status:** Accepted
+**Date:** 2026-11-23
+
+**Context.** D-004 makes NTEE codes the baseline Claude has to beat, which means mapping each NTEE code onto one of the six labels. NTEE and the taxonomy don't line up: some NTEE codes split across several labels, some cover services that aren't housing, and many group L codes say "housing" without saying which kind.
+
+**Decision.** `evals/ntee_taxonomy_map.csv` maps NTEE code prefixes to labels, with a reason for each row. The longest matching prefix wins.
+- **Group L:**
+  - L20, L21, L22 (senior housing), L25 (rehab): `affordable_housing_development`
+  - L23 (housing for people with disabilities): `supportive_housing`
+  - L4 (L40 temporary housing, L41 shelters, and any other L4x): `emergency_shelter`
+  - L80, L81 (repairs): `homeownership`
+  - L30, L82: `rental_assistance`
+  - L50 (owners' and renters' associations): `not_housing`
+- **Adjacent codes (D-009):** P70, P73, P75: `supportive_housing`. P85: `emergency_shelter`. P60 and the S codes: `not_housing`.
+- **Vague group L codes** (L01–L19 support and advocacy, L99, anything else under L) predict `unmapped`, which is always scored wrong and gets its own column in the confusion matrix. NTEE does say these are housing organizations, but not which kind, so it gets no credit for a guess.
+- **Anything else:** codes outside the map, and organizations with no NTEE code, predict `not_housing`, because NTEE doesn't call them housing.
+- The mapping follows the labeling guide's rules and NTEE's code definitions. It was not fitted to the hand labels. The eval saves a hash of the map file with every result.
+
+**Alternatives.**
+- Map the vague L codes to `not_housing`: it scores NTEE more generously when the hand label is `not_housing`, but it hides that NTEE called them housing.
+- Map them to the most common housing label: it makes NTEE look like it knows something it doesn't.
+- Score NTEE only on housing versus not housing: a fairer test of NTEE, but not comparable to Claude's six-way label. It could be added as a second view later.
+
+**Consequences.** Three rows are ambiguous and will cost NTEE points in predictable ways:
+- L80 ("housing support") could be any housing label.
+- P70 includes adult day programs, which aren't housing.
+- P85 includes day centers with no beds.
+
+The error analysis should check these rows before blaming the mapping or NTEE. A change to the map is a new decision entry, and results made with the old map stay as they are, identified by its hash.

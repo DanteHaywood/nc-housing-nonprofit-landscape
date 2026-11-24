@@ -2,7 +2,19 @@
 
 **Using Claude to help funders and nonprofits understand who is working on housing in North Carolina, using public IRS Form 990 data.**
 
-> **Status: in progress (started November 2026).** Stage 1 (classification and eval) is being built now. Stage 2 (landscape agent) comes next. Results sections below are placeholders until the evals have run. No numbers in this README are estimates.
+> **Status: in progress (started November 2026).** Stage 1 (classification and eval) runs end to end on the dev set. Stage 2 (landscape agent) comes next. No numbers in this README are estimates.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/confusion_dev_v001_dark.png">
+  <img alt="Confusion matrices for 40 hand-labeled North Carolina nonprofits. Claude (claude-haiku-5-5, prompt v001) labels 33 of 40 correctly (82.5%); IRS NTEE codes mapped onto the same taxonomy get 25 of 40 (62.5%). Claude's errors cluster around supportive housing." src="docs/images/confusion_dev_v001_light.png">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/precision_recall_dev_v001_dark.png">
+  <img alt="Precision and recall by label for Claude and NTEE codes on the dev set. Averaged over the five labels present, Claude's precision is 0.77 and recall 0.82; NTEE's are 0.31 and 0.29. NTEE scores zero on homeownership, rental assistance, and supportive housing." src="docs/images/precision_recall_dev_v001_light.png">
+</picture>
+
+*Dev-set results from [`evals/results/classify_dev__v001__claude-haiku-5-5.json`](evals/results/classify_dev__v001__claude-haiku-5-5.json), both drawn by `python -m evals.plot_confusion`. The dev set guides prompt work. The 60-organization test set hasn't been scored yet.*
 
 ---
 
@@ -121,7 +133,8 @@ The model name, all file paths, and other settings live in `config.yaml`, so not
 ├── evals/
 │   ├── labels/             # Hand-labeled set (CSV) and labeling guide
 │   ├── results/            # Saved eval output (source of all reported numbers)
-│   ├── classify_eval.py    # Claude vs. hand labels vs. NTEE
+│   ├── classify_eval.py    # Claude vs. hand labels vs. NTEE (and a random floor)
+│   ├── ntee_taxonomy_map.csv  # NTEE code → taxonomy label, for the baseline (D-018)
 │   └── agent_eval.py       # Numeric grounding and benchmark questions
 ├── docs/
 │   ├── decisions.md        # Design choices and why

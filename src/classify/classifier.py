@@ -335,23 +335,36 @@ def predictions_dir(config: dict[str, Any]) -> Path:
     return Path(config["paths"]["processed"]).parent
 
 
+def prediction_file(
+    config: dict[str, Any],
+    sheet_path: Path,
+    classifier: str,
+    prompt_version: str = "",
+    model: str = "",
+) -> Path:
+    """Return where a classifier's predictions for a sheet are written.
+
+    For example data/processed/labels_dev__claude__v001__claude-haiku-5-5.csv
+    or data/processed/labels_dev__random_seed7.csv. Empty parts are left out.
+    """
+    parts = [sheet_path.stem, classifier, prompt_version, model]
+    return predictions_dir(config) / ("__".join(p for p in parts if p) + ".csv")
+
+
 def prediction_path(
     config: dict[str, Any], sheet_path: Path, predictions: pd.DataFrame
 ) -> Path:
-    """Name the output after the sheet and classifier.
-
-    For example data/processed/labels_dev__claude__v001__claude-haiku-5-5.csv
-    or data/processed/labels_dev__random_seed7.csv.
-    """
-    first = predictions.iloc[0] if len(predictions) else None
-    parts = [sheet_path.stem]
-    if first is not None:
-        parts += [
-            p
-            for p in (first["classifier"], first["prompt_version"], first["model"])
-            if p
-        ]
-    return predictions_dir(config) / ("__".join(parts) + ".csv")
+    """Return `prediction_file` for the classifier named in `predictions`."""
+    if predictions.empty:
+        return prediction_file(config, sheet_path, "empty")
+    first = predictions.iloc[0]
+    return prediction_file(
+        config,
+        sheet_path,
+        first["classifier"],
+        first["prompt_version"],
+        first["model"],
+    )
 
 
 def write_predictions(predictions: pd.DataFrame, path: Path) -> Path:

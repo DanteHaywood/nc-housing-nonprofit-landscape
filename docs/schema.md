@@ -58,7 +58,7 @@ Typical joins:
 | Table | One row per | Key | Notes |
 |---|---|---|---|
 | `classifications` | organization × prompt version × model | (`ein`, `prompt_version`, `model`) | `label`, `reason`, `object_id` (the filing whose text was used), `text_source` (mission / schedule_o / activity_or_mission), `status` (ok / invalid_label / api_error), `created_at`. Rebuildable from `data/interim/api_cache/`, which stays the source of truth. |
-| `ntee_taxonomy_map` | NTEE code prefix | `ntee_prefix` | The NTEE baseline's mapping onto the project taxonomy. Needs its own decision entry (D-004). |
+| `ntee_taxonomy_map` | NTEE code prefix | `ntee_prefix` | The NTEE baseline's mapping onto the project taxonomy (D-018). For now it lives in `evals/ntee_taxonomy_map.csv`, which `evals/classify_eval.py` reads directly. |
 
 Hand labels stay in `evals/labels/` as committed CSVs. They are not loaded into
 the database, so the agent never sees them.

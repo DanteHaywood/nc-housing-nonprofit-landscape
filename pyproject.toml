@@ -18,6 +18,8 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pre-commit", "pytest", "ruff"]
+# Charts for the README (evals/plot_confusion.py).
+viz = ["matplotlib"]
 
 [tool.setuptools.packages.find]
 include = ["src*"]
